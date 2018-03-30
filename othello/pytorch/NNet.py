@@ -21,6 +21,8 @@ from torch.autograd import Variable
 
 from .OthelloNNet import OthelloNNet as onnet
 
+from AlphaNet import AlphaNet as alpNet
+
 args = dotdict({
     'lr': 0.001,
     'dropout': 0.3,
@@ -32,7 +34,8 @@ args = dotdict({
 
 class NNetWrapper(NeuralNet):
     def __init__(self, game):
-        self.nnet = onnet(game, args)
+        # self.nnet = onnet(game, args)
+        self.nnet=alpNet(game,args)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
@@ -71,9 +74,12 @@ class NNetWrapper(NeuralNet):
 
                 # measure data loading time
                 data_time.update(time.time() - end)
-
+                # print(boards.shape)
                 # compute output
                 out_pi, out_v = self.nnet(boards)
+                # print(out_pi,target_pis)
+                # print(out_v,target_vs)
+
                 l_pi = self.loss_pi(target_pis, out_pi)
                 l_v = self.loss_v(target_vs, out_v)
                 total_loss = l_pi + l_v
@@ -117,16 +123,18 @@ class NNetWrapper(NeuralNet):
         # preparing input
         board = torch.FloatTensor(board.astype(np.float64))
         if args.cuda: board = board.contiguous().cuda()
-        board = Variable(board, volatile=True)
+        board = Variable(board)
         board = board.view(1, self.board_x, self.board_y)
 
         self.nnet.eval()
-        pi, v = self.nnet(board)
+        with torch.no_grad():
+            pi, v = self.nnet(board)
 
         #print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
+
         return -torch.sum(targets*outputs)/targets.size()[0]
 
     def loss_v(self, targets, outputs):

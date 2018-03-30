@@ -54,3 +54,4 @@ class OthelloNNet(nn.Module):
         v = self.fc4(s)                                                                          # batch_size x 1
 
         return F.log_softmax(pi, dim=1), F.tanh(v)
+
