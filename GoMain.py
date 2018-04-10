@@ -4,7 +4,7 @@ from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
 
 args = dotdict({
-    'numIters': 100,
+    'numIters': 1000,
     'numEps': 100,
     'tempThreshold': 15,
     'updateThreshold': 0.6,
