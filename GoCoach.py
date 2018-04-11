@@ -21,7 +21,7 @@ class Coach():
         self.mcts = MCTS(self.game, self.nnet, self.args)
         self.trainExamplesHistory = []    # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False # can be overriden in loadTrainExamples()
-
+        self.display=args['display']
     def executeEpisode(self):
         """
         This function executes one episode of self-play, starting with player 1.
@@ -45,11 +45,10 @@ class Coach():
         while True:
 
             episodeStep += 1
-            # print("================Episode step:{}=====CURPLAYER:{}==========".format(episodeStep,"W" if self.curPlayer==-1 else "b"))
+            if self.display:
+                print("================Episode step:{}=====CURPLAYER:{}==========".format(episodeStep,"White" if self.curPlayer==-1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board,self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
-            # print("CANON:")
-            # display(canonicalBoard)
 
             pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
 
@@ -57,13 +56,15 @@ class Coach():
             for b,p in sym:
                 trainExamples.append([b, self.curPlayer, p, None])
             action = np.random.choice(len(pi), p=pi)
-            # print("BOARD Before:")
-            # display(board)
+
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
-            # print("BOARD updated:")
-            # display(board)
+            if self.display:
+                print("BOARD updated:")
+                display(board)
             r = self.game.getGameEnded(board.copy(), self.curPlayer)
             if r!=0:
+                if self.display:
+                    print("Current episode ends, {} wins.".format('Black' if r==1 else 'White'))
                 return [(x[0],x[2],r*((-1)**(x[1]!=self.curPlayer))) for x in trainExamples]
 
     def learn(self):
@@ -82,7 +83,8 @@ class Coach():
             if not self.skipFirstSelfPlay or i>1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
-                bar = Bar('Self Play', max=self.args.numEps)
+                if not self.display:
+                    bar = Bar('Self Play', max=self.args.numEps)
                 end = time.time()
 
                 for eps in range(self.args.numEps):
@@ -93,10 +95,14 @@ class Coach():
                     # bookkeeping + plot progress
                     eps_time.update(time.time() - end)
                     end = time.time()
-                    bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(eps=eps+1, maxeps=self.args.numEps, et=eps_time.avg,
-                                                                                                               total=bar.elapsed_td, eta=bar.eta_td)
-                    bar.next()
-                bar.finish()
+
+                    if not self.display:
+                        bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(eps=eps+1, maxeps=self.args.numEps, et=eps_time.avg,
+                                                                                                                   total=bar.elapsed_td, eta=bar.eta_td)
+                        bar.next()
+                if not self.display:
+
+                    bar.finish()
 
                 # save the iteration examples to the history
                 self.trainExamplesHistory.append(iterationTrainExamples)
