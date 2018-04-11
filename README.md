@@ -12,6 +12,10 @@ python main.py
 ```
 Choose your framework and game in ```main.py```.
 
+To display the board status of training process:
+```bash
+set display:True
+```
 ### Experiments
 We trained a PyTorch model for 6x6 Othello (~80 iterations, 100 episodes per iteration and 25 MCTS simulations per turn). This took about 3 days on an NVIDIA Tesla K80. The pretrained model (PyTorch) can be found in ```pretrained_models/othello/pytorch/```. You can play a game against it using ```pit.py```. Below is the performance of the model against a random and a greedy baseline with the number of iterations.
 ![alt tag](https://github.com/suragnair/alpha-zero-general/raw/master/pretrained_models/6x6.png)
@@ -31,7 +35,8 @@ While the current code is fairly functional, we could benefit from the following
 * [Shantanu Kumar](https://github.com/SourKream) contributed TensorFlow and Keras models for Othello.
 * [Evgeny Tyurin](https://github.com/evg-tyurin) contributed rules and a trained model for TicTacToe.
 * [MBoss](https://github.com/1424667164) contributed rules and a model for GoBang.
-
+* [TianyuLei & LingxiaoGong](https://github.com/ambbber) contributed rules and a model for GoGame.
+* [ZhongyaoChu](https://github.com/edwardchor) contributed ResNet implementation and improved MCTS for GoGame.
 
 Thanks to [pytorch-classification](https://github.com/bearpaw/pytorch-classification) and [progress](https://github.com/verigak/progress).
 
