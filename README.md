@@ -46,3 +46,4 @@ Thanks to [pytorch-classification](https://github.com/bearpaw/pytorch-classifica
 
 #### For pitting with current trained model
 - Pytorch with CUDA support is required
+- If a required environment is not available, please contact zc1213@nyu.edu and request for a link on which online pitting experiecne is offered.
