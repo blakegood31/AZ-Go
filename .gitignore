@@ -1,6 +1,7 @@
 *.pyc
 .DS_Store
-
+*.ipynb
+.ipy*
 /temp/
 /.project
 /.pydevproject
