@@ -1,12 +1,13 @@
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
+from go.GoGame import display
 import numpy as np
 from pytorch_classification.utils import Bar, AverageMeter
 import time, os, sys
 from pickle import Pickler, Unpickler
 from random import shuffle
-from go.GoGame import display
+
 
 class Coach():
     """
