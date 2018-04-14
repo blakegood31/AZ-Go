@@ -1,6 +1,8 @@
 *.pyc
 .DS_Store
-
+sbatch_script.sh
 /temp/
 /.project
+sbatch.sh
+slur*
 /.pydevproject

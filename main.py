@@ -17,11 +17,11 @@ args = dotdict({
     'load_model': False,
     'load_folder_file': ('./temp/','best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
-    'display':True #True to display board, False to display progress bar
+    'display':False #True to display board, False to display progress bar
 })
 
 if __name__=="__main__":
-    g = Game(6)
+    g = Game(11)
     nnet = nn(g)
 
     if args.load_model:
