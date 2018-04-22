@@ -7,14 +7,14 @@ from pytorch_classification.utils import Bar, AverageMeter
 import time, os, sys
 from pickle import Pickler, Unpickler
 from random import shuffle
-
+import pandas as pd
 
 class Coach():
     """
     This class executes the self-play + learning. It uses the functions defined
     in Game and NeuralNet. args are specified in main.py.
     """
-    def __init__(self, game, nnet, args):
+    def __init__(self, game, nnet, args,log=False,logPath=''):
         self.game = game
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game)  # the competitor network
@@ -23,6 +23,8 @@ class Coach():
         self.trainExamplesHistory = []    # history of examples from args.numItersForTrainExamplesHistory latest iterations
         self.skipFirstSelfPlay = False # can be overriden in loadTrainExamples()
         self.display=args['display']
+        self.keepLog=log
+        self.logPath=logPath
     def executeEpisode(self):
         """
         This function executes one episode of self-play, starting with player 1.
@@ -76,8 +78,11 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
+        iterHistory={'ITER':[],'ITER_DETAIL':[],'PITT_RESTULT':[]}
+
 
         for i in range(1, self.args.numIters+1):
+            iterHistory['ITER'].append(i)
             # bookkeeping
             print('###########################ITER:{}###########################'.format(str(i)))
             # examples of the iteration
@@ -126,7 +131,10 @@ class Coach():
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             pmcts = MCTS(self.game, self.pnet, self.args)
 
-            self.nnet.train(trainExamples)
+            trainLog=self.nnet.train(trainExamples)
+            if self.keepLog:
+                trainLog.to_csv(self.logPath+'ITER_{}_TRAIN_LOG.csv'.format(i))
+            iterHistory['ITER_DETAIL'].append(self.logPath+'ITER_{}_TRAIN_LOG.csv'.format(i))
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('PITTING AGAINST PREVIOUS VERSION')
@@ -137,12 +145,15 @@ class Coach():
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins+nwins > 0 and float(nwins)/(pwins+nwins) < self.args.updateThreshold:
                 print('REJECTING NEW MODEL')
+                iterHistory['PITT_RESTULT'].append('R')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:
                 print('ACCEPTING NEW MODEL')
+                iterHistory['PITT_RESTULT'].append('A')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
+            pd.DataFrame(data=iterHistory).to_csv('ITER_{}_LOG.csv'.format(i))
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'
 
