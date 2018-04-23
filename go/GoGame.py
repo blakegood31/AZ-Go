@@ -57,7 +57,7 @@ class GoGame(Game):
         return np.array(valids)
 
     # modified
-    def getGameEnded(self, board, player):
+    def getGameEnded(self, board, player,returnScore=False):
         # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
         # player = 1
 
@@ -83,6 +83,8 @@ class GoGame(Game):
                 else:
                     # Tie
                     winner = 1e-4
+        if returnScore:
+            return winner,(score_black, score_white)
         return winner
 
     def getScore(self, board):
