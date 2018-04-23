@@ -5,7 +5,7 @@ Classification on CIFAR-10/100 and ImageNet with PyTorch.
 * Unified interface for different network architectures
 * Multi-GPU support
 * Training progress bar with rich info
-* Training log and training curve visualization code (see `./utils/logger.py`)
+* Training HistoryLog and training curve visualization code (see `./utils/logger.py`)
 
 ## Install
 * Install [PyTorch](http://pytorch.org/)

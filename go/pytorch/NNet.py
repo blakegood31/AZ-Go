@@ -10,7 +10,7 @@ sys.path.append('../../')
 from utils import *
 from pytorch_classification.utils import Bar, AverageMeter
 from NeuralNet import NeuralNet
-
+import pandas as pd
 import argparse
 import torch
 import torch.nn as nn
@@ -48,9 +48,15 @@ class NNetWrapper(NeuralNet):
         examples: list of examples, each example is of form (board, pi, v)
         """
         optimizer = optim.Adam(self.nnet.parameters())
+        trainLog={
+            'EPOCH':[],
+            'P_LOSS':[],
+            'V_LOSS':[]
+        }
 
         for epoch in range(args.epochs):
             print('EPOCH ::: ' + str(epoch+1))
+            trainLog['EPOCH'].append(epoch)
             self.nnet.train()
             data_time = AverageMeter()
             batch_time = AverageMeter()
@@ -97,6 +103,7 @@ class NNetWrapper(NeuralNet):
                 # measure elapsed time
                 batch_time.update(time.time() - end)
                 end = time.time()
+
                 batch_idx += 1
 
                 # plot progress
@@ -111,7 +118,12 @@ class NNetWrapper(NeuralNet):
                             lv=v_losses.avg,
                             )
                 bar.next()
+
+            trainLog['P_LOSS'].append(pi_losses.avg)
+            trainLog['V_LOSS'].append(v_losses.avg)
             bar.finish()
+
+        return pd.DataFrame(data=trainLog)
 
 
     def predict(self, board):

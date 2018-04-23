@@ -21,7 +21,7 @@ def plot_overlap(logger, names=None):
     return [logger.title + '(' + name + ')' for name in names]
 
 class Logger(object):
-    '''Save training process to log file with simple plot function.'''
+    '''Save training process to HistoryLog file with simple plot function.'''
     def __init__(self, fpath, title=None, resume=False): 
         self.file = None
         self.resume = resume
@@ -115,9 +115,9 @@ if __name__ == '__main__':
 
     # Example: logger monitor
     paths = {
-    'resadvnet20':'/home/wyang/code/pytorch-classification/checkpoint/cifar10/resadvnet20/log.txt', 
-    'resadvnet32':'/home/wyang/code/pytorch-classification/checkpoint/cifar10/resadvnet32/log.txt',
-    'resadvnet44':'/home/wyang/code/pytorch-classification/checkpoint/cifar10/resadvnet44/log.txt',
+    'resadvnet20':'/home/wyang/code/pytorch-classification/checkpoint/cifar10/resadvnet20/HistoryLog.txt',
+    'resadvnet32':'/home/wyang/code/pytorch-classification/checkpoint/cifar10/resadvnet32/HistoryLog.txt',
+    'resadvnet44':'/home/wyang/code/pytorch-classification/checkpoint/cifar10/resadvnet44/HistoryLog.txt',
     }
 
     field = ['Valid Acc.']

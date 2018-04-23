@@ -2,7 +2,8 @@ from GoCoach import Coach
 from go.GoGame import GoGame as Game
 from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
-
+import datetime
+import time,os
 args = dotdict({
     'numIters': 1000,
     'numEps': 100,
@@ -17,17 +18,20 @@ args = dotdict({
     'load_model': False,
     'load_folder_file': ('./temp/','best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
-    'display':True #True to display board, False to display progress bar
+    'display':False #True to display board, False to display progress bar
 })
 
 if __name__=="__main__":
-    g = Game(6)
+    BoardSize=11
+    g = Game(BoardSize)
     nnet = nn(g)
+    logPath='HistoryLog/Go/{}_{}'.format(BoardSize,datetime.datetime.now())
+    os.mkdir(logPath)
 
     if args.load_model:
         nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
 
-    c = Coach(g, nnet, args)
+    c = Coach(g, nnet, args,log=True,logPath=logPath)
     if args.load_model:
         print("Load trainExamples from file")
         c.loadTrainExamples()

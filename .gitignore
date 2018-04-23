@@ -1,7 +1,10 @@
 *.pyc
 .DS_Store
+sbatch_script.sh
 *.ipynb
 .ipy*
 /temp/
 /.project
+sbatch.sh
+slur*
 /.pydevproject
