@@ -8,10 +8,10 @@ args = dotdict({
     'numIters': 1000,
     'numEps': 100,
     'tempThreshold': 15,
-    'updateThreshold': 0.6,
+    'updateThreshold': 0.52,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 25,
-    'arenaCompare': 40,
+    'arenaCompare': 60,
     'cpuct': 1,
 
     'checkpoint': './HistoryLog/Go/checkpoint/',
