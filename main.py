@@ -14,9 +14,9 @@ args = dotdict({
     'arenaCompare': 40,
     'cpuct': 1,
 
-    'checkpoint': './temp/',
+    'checkpoint': './HistoryLog/Go/checkpoint/',
     'load_model': False,
-    'load_folder_file': ('./temp/','best.pth.tar'),
+    'load_folder_file': ('./HistoryLog/Go/checkpoint/','best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
     'display':False #True to display board, False to display progress bar
 })
@@ -25,8 +25,11 @@ if __name__=="__main__":
     BoardSize=11
     g = Game(BoardSize)
     nnet = nn(g)
-    logPath='HistoryLog/Go/{}_{}'.format(BoardSize,datetime.datetime.now())
-    os.mkdir(logPath)
+    logPath='HistoryLog/Go/{}'.format(BoardSize)
+    try:
+        os.mkdir(logPath)
+    except:
+        pass
 
     if args.load_model:
         nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])

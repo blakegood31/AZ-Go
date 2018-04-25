@@ -64,8 +64,8 @@ class Coach():
             if self.display:
                 print("BOARD updated:")
                 display(board)
-            r,score = self.game.getGameEnded(board.copy(), self.curPlayer,returnScore=True)
-            print(score)
+            r= self.game.getGameEnded(board.copy(), self.curPlayer,returnScore=False)
+            # print(score)
             if r!=0:
                 if self.display:
                     print("Current episode ends, {} wins with score :B:{};W:{}.".format('Black' if r==1 else 'White',score[0],score[1]))
@@ -135,7 +135,7 @@ class Coach():
 
             trainLog=self.nnet.train(trainExamples)
             if self.keepLog:
-                trainLog.to_csv(self.logPath+'ITER_{}_TRAIN_LOG.csv'.format(i))
+                trainLog.to_csv(self.logPath+'/ITER_{}_TRAIN_LOG.csv'.format(i))
             iterHistory['ITER_DETAIL'].append(self.logPath+'ITER_{}_TRAIN_LOG.csv'.format(i))
             nmcts = MCTS(self.game, self.nnet, self.args)
 
