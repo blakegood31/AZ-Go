@@ -17,7 +17,7 @@ class Coach():
     def __init__(self, game, nnet, args,log=False,logPath=''):
         self.game = game
         self.nnet = nnet
-        self.pnet = self.nnet.__class__(self.game)  # the competitor network
+        self.pnet = self.nnet.__class__(self.game,t=self.nnet.netType)  # the competitor network
         self.args = args
         self.mcts = MCTS(self.game, self.nnet, self.args)
         self.trainExamplesHistory = []    # history of examples from args.numItersForTrainExamplesHistory latest iterations
@@ -155,7 +155,7 @@ class Coach():
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
-            pd.DataFrame(data=iterHistory).to_csv('ITER_{}_LOG.csv'.format(i))
+            pd.DataFrame(data=iterHistory).to_csv(self.logPath+'ITER_LOG.csv')
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'
 
