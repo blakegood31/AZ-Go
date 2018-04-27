@@ -108,7 +108,7 @@ class AlphaNet(ResNet):
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.args = args
-        outputShift=1 if self.board_x in [6,11] else 4
+        outputShift=1 if self.board_x in [6,7,11] else 4
         self.inplanes = 64
 
         super(ResNet, self).__init__()

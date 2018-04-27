@@ -4,6 +4,7 @@ from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
 import datetime
 import time,os
+BoardSize=7
 args = dotdict({
     'numIters': 1000,
     'numEps': 100,
@@ -14,18 +15,18 @@ args = dotdict({
     'arenaCompare': 35,
     'cpuct': 1,
 
-    'checkpoint': './HistoryLog/Go/checkpoint/7/',
+    'checkpoint': './HistoryLog/Go/checkpoint/{}/'.format(BoardSize),
     'load_model': False,
-    'load_folder_file': ('./HistoryLog/Go/checkpoint/7/','best.pth.tar'),
+    'load_folder_file': ('./HistoryLog/Go/checkpoint/{}/'.format(BoardSize),'best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
     'display':False #True to display board, False to display progress bar
 })
 
 if __name__=="__main__":
-    BoardSize=7
+
     g = Game(BoardSize)
     nnet = nn(g)
-    logPath='HistoryLog/Go/{}'.format(BoardSize)
+    logPath='HistoryLog/Go/Log/{}'.format(BoardSize)
     try:
         os.mkdir(logPath)
     except:
