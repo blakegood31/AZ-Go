@@ -8,21 +8,21 @@ args = dotdict({
     'numIters': 1000,
     'numEps': 100,
     'tempThreshold': 15,
-    'updateThreshold': 0.52,
+    'updateThreshold': 0.51,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 25,
-    'arenaCompare': 60,
+    'arenaCompare': 35,
     'cpuct': 1,
 
-    'checkpoint': './HistoryLog/Go/checkpoint/',
+    'checkpoint': './HistoryLog/Go/checkpoint/7/',
     'load_model': False,
-    'load_folder_file': ('./HistoryLog/Go/checkpoint/','best.pth.tar'),
+    'load_folder_file': ('./HistoryLog/Go/checkpoint/7/','best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
     'display':False #True to display board, False to display progress bar
 })
 
 if __name__=="__main__":
-    BoardSize=11
+    BoardSize=7
     g = Game(BoardSize)
     nnet = nn(g)
     logPath='HistoryLog/Go/{}'.format(BoardSize)
