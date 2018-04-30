@@ -1,5 +1,6 @@
 *.csv
 nohup.out
+HistoryLog
 HistoryLog/Go/checkpoint/checkpoint_0*
 HistoryLog/Go/checkpoint/checkpoint*
 *.pyc
