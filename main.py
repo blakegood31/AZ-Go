@@ -5,7 +5,8 @@ from utils import *
 import datetime
 import time,os
 BoardSize=7
-NetType='R'
+NetType='C'
+tag='MCTS_SimModified'
 #NetType='R'
 args = dotdict({
     'numIters': 1000,
@@ -13,11 +14,11 @@ args = dotdict({
     'tempThreshold': 15,
     'updateThreshold': 0.51,
     'maxlenOfQueue': 200000,
-    'numMCTSSims': 25,
-    'arenaCompare': 35,
+    'numMCTSSims': 200,
+    'arenaCompare': 50,
     'cpuct': 1,
 
-    'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType,BoardSize),
+    'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+tag,BoardSize),
     'load_model': False,
     'load_folder_file': ('./HistoryLog/Go/{}_checkpoint/{}/'.format(NetType,BoardSize),'best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
@@ -28,9 +29,9 @@ if __name__=="__main__":
 
     g = Game(BoardSize)
     nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
-    logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType,BoardSize)
+    logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType+tag,BoardSize)
     try:
-        os.mkdir(logPath)
+        os.makedirs(logPath)
     except:
         pass
 

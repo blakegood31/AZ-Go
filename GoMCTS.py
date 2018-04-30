@@ -15,7 +15,7 @@ class MCTS():
         self.Nsa = {}       # stores #times edge s,a was visited
         self.Ns = {}        # stores #times board s was visited
         self.Ps = {}        # stores initial policy (returned by neural net)
-
+        self.smartSimNum=10*(self.game.getBoardSize()[0]**2)
         self.Es = {}        # stores game.getGameEnded ended for board s
         self.Vs = {}        # stores game.getValidMoves for board s
 
@@ -31,8 +31,8 @@ class MCTS():
 
         # display(canonicalBoard)
         
-        
-        for i in range(self.args.numMCTSSims):
+        print('current sim numbers:{}'.format(max(self.args.numMCTSSims,self.smartSimNum)))
+        for i in range(max(self.args.numMCTSSims,self.smartSimNum)):
 
             self.search(canonicalBoard)
 
@@ -40,7 +40,8 @@ class MCTS():
 
         counts = np.array([self.Nsa[(s,a)] if (s,a) in self.Nsa else 0 for a in range(self.game.getActionSize())])
         valids=self.game.getValidMoves(canonicalBoard,player=1)
-        
+        self.smartSimNum=10*(np.count_nonzero(valids))
+
         if np.sum(counts)==0:
             counts=valids
         else:
