@@ -4,15 +4,15 @@ from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
 import datetime
 import time,os
-BoardSize=7
-NetType='C'
+BoardSize=11
+NetType='R'
 tag='MCTS_SimModified'
 #NetType='R'
 args = dotdict({
     'numIters': 1000,
     'numEps': 100,
     'tempThreshold': 15,
-    'updateThreshold': 0.51,
+    'updateThreshold': 0.55,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 200,
     'arenaCompare': 50,
