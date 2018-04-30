@@ -5,8 +5,8 @@ from utils import *
 import datetime
 import time,os
 BoardSize=7
-NetType='C'
 NetType='R'
+#NetType='R'
 args = dotdict({
     'numIters': 1000,
     'numEps': 100,
@@ -17,7 +17,7 @@ args = dotdict({
     'arenaCompare': 35,
     'cpuct': 1,
 
-    'R_checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType,BoardSize),
+    'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType,BoardSize),
     'load_model': False,
     'load_folder_file': ('./HistoryLog/Go/{}_checkpoint/{}/'.format(NetType,BoardSize),'best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
@@ -27,7 +27,7 @@ args = dotdict({
 if __name__=="__main__":
 
     g = Game(BoardSize)
-    nnet = nn(g,t='CNN')
+    nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
     logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType,BoardSize)
     try:
         os.mkdir(logPath)
