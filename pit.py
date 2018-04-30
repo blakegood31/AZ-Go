@@ -26,7 +26,11 @@ NetType='CNN'
 ResNet=nn(g,t='RES')
 
 ResNet.load_checkpoint('./HistoryLog/Go/R_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
+<<<<<<< HEAD
 ResArgs = dotdict({'numMCTSSims': 250, 'cpuct':3.0})
+=======
+ResArgs = dotdict({'numMCTSSims': 50, 'cpuct':1.0})
+>>>>>>> ef4f12adbc392ff51f75311f96f6c3726e529756
 ResMCTS = MCTS(g, ResNet, ResArgs)
 ResPlayer = lambda x: np.argmax(ResMCTS.getActionProb(x, temp=0))
 
