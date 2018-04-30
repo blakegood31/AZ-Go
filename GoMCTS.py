@@ -30,6 +30,8 @@ class MCTS():
         """
 
         # display(canonicalBoard)
+        
+        
         for i in range(self.args.numMCTSSims):
 
             self.search(canonicalBoard)
@@ -38,6 +40,7 @@ class MCTS():
 
         counts = np.array([self.Nsa[(s,a)] if (s,a) in self.Nsa else 0 for a in range(self.game.getActionSize())])
         valids=self.game.getValidMoves(canonicalBoard,player=1)
+        
         if np.sum(counts)==0:
             counts=valids
         else:
