@@ -135,7 +135,7 @@ class Coach():
 
             trainLog=self.nnet.train(trainExamples)
             if self.keepLog:
-                trainLog.to_csv(self.logPath+'/ITER_{}_TRAIN_LOG.csv'.format(i))
+                trainLog.to_csv(self.logPath+'ITER_{}_TRAIN_LOG.csv'.format(i))
             iterHistory['ITER_DETAIL'].append(self.logPath+'ITER_{}_TRAIN_LOG.csv'.format(i))
             nmcts = MCTS(self.game, self.nnet, self.args)
 

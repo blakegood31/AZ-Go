@@ -29,7 +29,7 @@ if __name__=="__main__":
 
     g = Game(BoardSize)
     nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
-    logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType+tag,BoardSize)
+    logPath='./HistoryLog/Go/{}_Log/{}/'.format(NetType+tag,BoardSize)
     try:
         os.makedirs(logPath)
     except:
