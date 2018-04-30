@@ -29,7 +29,7 @@ if __name__=="__main__":
 
     g = Game(BoardSize)
     nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
-    logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType+'_'+tag,BoardSize)
+    logPath='./HistoryLog/Go/{}_Log/{}/'.format(NetType+'_'+tag,BoardSize)
     os.makedirs(logPath)
 
     if args.load_model:
