@@ -18,9 +18,9 @@ args = dotdict({
     'arenaCompare': 50,
     'cpuct': 3,
 
-    'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+tag,BoardSize),
+    'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+'_'+tag,BoardSize),
     'load_model': False,
-    'load_folder_file': ('./HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+tag,BoardSize),'best.pth.tar'),
+    'load_folder_file': ('./HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+'_'+tag,BoardSize),'best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
     'display':False #True to display board, False to display progress bar
 })
@@ -29,7 +29,7 @@ if __name__=="__main__":
 
     g = Game(BoardSize)
     nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
-    logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType+tag,BoardSize)
+    logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType+'_'+tag,BoardSize)
     os.makedirs(logPath)
 
     if args.load_model:
