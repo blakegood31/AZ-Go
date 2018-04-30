@@ -3,7 +3,7 @@ from GoMCTS import MCTS
 from go.GoGame import display
 from go.GoGame import GoGame as game
 from go.GoPlayers import *
-from go.pytorch.NNet import NNetWrapper as NNet
+from go.pytorch.NNet import NNetWrapper as nn
 
 import numpy as np
 from utils import *
@@ -21,18 +21,21 @@ gp = GreedyGoPlayer(g).play
 hp = HumanGoPlayer(g).play
 
 # nnet players
-n1 = NNet(g)
-n1.load_checkpoint('./HistoryLog/Go/R_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
-args1 = dotdict({'numMCTSSims': 50, 'cpuct':1.0})
-mcts1 = MCTS(g, n1, args1)
-n1p = lambda x: np.argmax(mcts1.getActionProb(x, temp=0))
+NetType='CNN'
+
+ResNet=nn(g,t='RES')
+
+ResNet.load_checkpoint('./HistoryLog/Go/R_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
+ResArgs = dotdict({'numMCTSSims': 50, 'cpuct':1.0})
+ResMCTS = MCTS(g, ResNet, ResArgs)
+ResPlayer = lambda x: np.argmax(ResMCTS.getActionProb(x, temp=0))
 
 
-#n2 = NNet(g)
-#n2.load_checkpoint('/dev/8x50x25/','best.pth.tar')
-#args2 = dotdict({'numMCTSSims': 25, 'cpuct':1.0})
-#mcts2 = MCTS(g, n2, args2)
-#n2p = lambda x: np.argmax(mcts2.getActionProb(x, temp=0))
+CNN=nn(g,t='CNN')
+CNN.load_checkpoint('./HistoryLog/Go/C_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
+CNNArgs = dotdict({'numMCTSSims': 250, 'cpuct':3.0})
+CNNMCTS = MCTS(g, CNN, CNNArgs)
+CNNPlayer = lambda x: np.argmax(CNNMCTS.getActionProb(x, temp=0))
 
-arena = Arena.Arena(n1p, hp, g, display=display)
-print(arena.playGames(2, verbose=True))
+arena = Arena.Arena(ResPlayer, CNNPlayer, g, display=display)
+print(arena.playGames(3, verbose=True))
