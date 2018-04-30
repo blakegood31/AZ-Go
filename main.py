@@ -4,7 +4,7 @@ from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
 import datetime
 import time,os
-BoardSize=7
+BoardSize=19
 NetType='R'
 #NetType='R'
 args = dotdict({
@@ -13,9 +13,9 @@ args = dotdict({
     'tempThreshold': 15,
     'updateThreshold': 0.51,
     'maxlenOfQueue': 200000,
-    'numMCTSSims': 25,
+    'numMCTSSims': 200,
     'arenaCompare': 35,
-    'cpuct': 1,
+    'cpuct': 3,
 
     'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType,BoardSize),
     'load_model': False,
@@ -30,7 +30,7 @@ if __name__=="__main__":
     nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
     logPath='./HistoryLog/Go/{}_Log/{}'.format(NetType,BoardSize)
     try:
-        os.mkdir(logPath)
+        os.mkdirs(logPath)
     except:
         pass
 
