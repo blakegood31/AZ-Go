@@ -3,7 +3,10 @@ from go.GoGame import GoGame as Game
 from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
 import datetime
-import time,os
+import time,os,sys
+
+sys.setrecursionlimit(5000)
+
 BoardSize=7
 NetType='C'
 tag='MCTS_SimModified'
@@ -22,7 +25,7 @@ args = dotdict({
     'cpuct': 3,
 
     'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+'_'+tag,BoardSize),
-    'load_model': False,
+    'load_model': True,
     'load_folder_file': ('./HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+'_'+tag,BoardSize),'best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
     'display':NO_DIS #True to display board, False to display progress bar
@@ -33,7 +36,10 @@ if __name__=="__main__":
     g = Game(BoardSize)
     nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
     logPath='./HistoryLog/Go/{}_Log/{}/'.format(NetType+'_'+tag,BoardSize)
-    os.makedirs(logPath)
+    try:
+        os.makedirs(logPath)
+    except:
+        pass
 
     if args.load_model:
         nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
