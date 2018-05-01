@@ -48,7 +48,7 @@ class Coach():
         while True:
 
             episodeStep += 1
-            if self.display:
+            if self.display == 2:
                 print("================Episode step:{}=====CURPLAYER:{}==========".format(episodeStep,"White" if self.curPlayer==-1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board,self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
@@ -61,13 +61,13 @@ class Coach():
             action = np.random.choice(len(pi), p=pi)
 
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
-            if self.display:
+            if self.display ==2:
                 print("BOARD updated:")
                 display(board)
             r= self.game.getGameEnded(board.copy(), self.curPlayer,returnScore=False)
             # print(score)
             if r!=0:
-                if self.display:
+                if self.display==2:
                     print("Current episode ends, {} wins with score :B:{};W:{}.".format('Black' if r==1 else 'White',score[0],score[1]))
                     
                 return [(x[0],x[2],r*((-1)**(x[1]!=self.curPlayer))) for x in trainExamples]
@@ -91,7 +91,7 @@ class Coach():
             if not self.skipFirstSelfPlay or i>1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
-                if not self.display:
+                if self.display ==1:
                     bar = Bar('Self Play', max=self.args.numEps)
                 end = time.time()
 
@@ -104,11 +104,11 @@ class Coach():
                     eps_time.update(time.time() - end)
                     end = time.time()
 
-                    if not self.display:
+                    if self.display ==1:
                         bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(eps=eps+1, maxeps=self.args.numEps, et=eps_time.avg,
                                                                                                                    total=bar.elapsed_td, eta=bar.eta_td)
                         bar.next()
-                if not self.display:
+                if  self.display ==1:
 
                     bar.finish()
 
