@@ -5,7 +5,7 @@ from utils import *
 import datetime
 import time,os
 BoardSize=11
-NetType='R'
+NetType='C'
 tag='MCTS_SimModified'
 #NetType='R'
 args = dotdict({
