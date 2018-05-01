@@ -8,6 +8,9 @@ BoardSize=7
 NetType='C'
 tag='MCTS_SimModified'
 #NetType='R'
+DIS_BOARD=2
+DIS_BAR=1
+NO_DIS=0
 args = dotdict({
     'numIters': 1000,
     'numEps': 100,
@@ -22,7 +25,7 @@ args = dotdict({
     'load_model': False,
     'load_folder_file': ('./HistoryLog/Go/{}_checkpoint/{}/'.format(NetType,BoardSize),'best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
-    'display':False #True to display board, False to display progress bar
+    'display':NO_DIS #True to display board, False to display progress bar
 })
 
 if __name__=="__main__":
