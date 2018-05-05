@@ -1,12 +1,23 @@
-import Arena
-from GoMCTS import MCTS
-from go.GoGame import display
-from go.GoGame import GoGame as game
-from go.GoPlayers import *
-from go.pytorch.NNet import NNetWrapper as nn
+
+try:
+    import Arena
+    from GoMCTS import MCTS
+    from go.GoGame import display
+    from go.GoGame import GoGame as game
+    from go.GoPlayers import *
+    from go.pytorch.NNet import NNetWrapper as nn
+    from utils import *
+except:
+    import Arena
+    from GoMCTS import MCTS
+    from .go.GoGame import display
+    from .go.GoGame import GoGame as game
+    from .go.GoPlayers import *
+    from .go.pytorch.NNet import NNetWrapper as nn
+    from utils import *
 
 import numpy as np
-from utils import *
+
 
 """
 use this script to play any two agents against each other, or play manually with
@@ -24,8 +35,8 @@ hp = HumanGoPlayer(g).play
 NetType='CNN'
 
 ResNet=nn(g,t='RES')
-ResNet.load_checkpoint('./HistoryLog/Go/R_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
-ResArgs = dotdict({'numMCTSSims': 250, 'cpuct':3.0})
+ResNet.load_checkpoint('./HistoryLog/Go/R_Ver2_checkpoint/{}/'.format(BoardSize),'RVer2.best.pth.tar')
+ResArgs = dotdict({'numMCTSSims': 2050, 'cpuct':17.0})
 ResMCTS = MCTS(g, ResNet, ResArgs)
 ResPlayer = lambda x: np.argmax(ResMCTS.getActionProb(x, temp=0))
 
@@ -37,4 +48,4 @@ CNNMCTS = MCTS(g, CNN, CNNArgs)
 CNNPlayer = lambda x: np.argmax(CNNMCTS.getActionProb(x, temp=0))
 
 arena = Arena.Arena(ResPlayer, CNNPlayer, g, display=display)
-print(arena.playGames(3, verbose=True))
+print(arena.playGames(20, verbose=True))

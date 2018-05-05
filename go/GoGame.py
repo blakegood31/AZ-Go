@@ -1,11 +1,9 @@
 from __future__ import print_function
-import sys
-sys.path.append('..')
 try:
     from Game import Game
     from GoLogic import Board
 except:
-    from ..Game import Game
+    from Game import Game
     from .GoLogic import Board
 import numpy as np
 
