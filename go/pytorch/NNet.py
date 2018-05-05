@@ -7,9 +7,6 @@ import numpy as np
 import math
 import sys
 sys.path.append('../../')
-from utils import *
-from pytorch_classification.utils import Bar, AverageMeter
-from NeuralNet import NeuralNet
 import pandas as pd
 import argparse
 import torch
@@ -23,6 +20,16 @@ from torch.autograd import Variable
 from .GoAlphaNet import AlphaNet as alpNet
 from .GoAlphaNet import AlphaNetMaker as NetMaker
 from .GoNNet import GoNNet
+
+try:
+    from utils import *
+    from pytorch_classification.utils import Bar, AverageMeter
+    from NeuralNet import NeuralNet
+except:
+    from ...utils import *
+    from ...pytorch_classification.utils import Bar, AverageMeter
+    from ...NeuralNet import NeuralNet
+
 args = dotdict({
     'lr': 0.001,
     'dropout': 0.3,

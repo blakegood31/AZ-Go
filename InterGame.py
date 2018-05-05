@@ -1,12 +1,19 @@
-import Arena
-from GoMCTS import MCTS
-from go.GoGame import display
-from go.GoGame import GoGame as game
-from go.GoPlayers import *
-from go.pytorch.NNet import NNetWrapper as nn
-import numpy as np
-from utils import *
-
+try:
+    from GoMCTS import MCTS
+    from go.GoGame import display
+    from go.GoGame import GoGame as game
+    from go.GoPlayers import *
+    from go.pytorch.NNet import NNetWrapper as nn
+    import numpy as np
+    from utils import *
+except:
+    from .GoMCTS import MCTS
+    from .go.GoGame import display
+    from .go.GoGame import GoGame as game
+    from .go.GoPlayers import *
+    from .go.pytorch.NNet import NNetWrapper as nn
+    import numpy as np
+    from .utils import *
 """
 use this script to play any two agents against each other, or play manually with
 any agent.
@@ -17,7 +24,7 @@ HUMAN_SECOND=1
 
 class InterGame(object):
 
-    def __init__(self,order,NetType='ResNet'):
+    def __init__(self,NetType='ResNet'):
         self.game=game(BoardSize)
         self.board=self.game.getInitBoard()
         self.n=self.game.getBoardSize()[0]
@@ -74,5 +81,47 @@ class InterGame(object):
         self.board, self.curPlayer = self.game.getNextState(self.board, self.curPlayer, action)
         return 
     
+    def showBoard(self):
+        display(self.board)
+
+
+class InterGameTest(object):
+
+    def __init__(self,NetType='ResNet'):
+        self.game=game(BoardSize)
+        self.board=self.game.getInitBoard()
+        self.n=self.game.getBoardSize()[0]
+        self.players=[self.AlphaPlay,None,self.HumanPlay]
+        self.curPlayer=1
+        self.gameStatus=0
+
+    def initialize(self):
+        self.board=self.game.getInitBoard()
+    def judgeGame(self):
+        self.gameStatus=self.game.getGameEnded(self.board,self.curPlayer)
+        if self.gameStatus==-1:
+            print("player 1 lost.")
+            return -1
+        elif self.gameStatus==1:
+            print("player 1 won.")
+            return 1
+        else:
+            print("game continues.")
+            return 0
+    def AlphaPlay(self,*move):
+
+        return (3,3)
+
+    def HumanPlay(self,move):
+        assert(self.judgeGame()==0)
+        x,y = [int(x) for x in move]
+        valids = self.game.getValidMoves(self.game.getCanonicalForm(self.board, self.curPlayer),1)
+        action= self.game.n * x + y if x!= -1 else self.game.n ** 2
+        if valids[action]==0:
+            print("Invalid Move!")
+            return
+        self.board, self.curPlayer = self.game.getNextState(self.board, self.curPlayer, action)
+        return
+
     def showBoard(self):
         display(self.board)

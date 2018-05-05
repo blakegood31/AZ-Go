@@ -1,7 +1,10 @@
 import math
 import numpy as np
 import time
-from go.GoGame import display
+try:
+    from go.GoGame import display
+except:
+    from .go.GoGame import display
 class MCTS():
     """
     This class handles the MCTS tree.
