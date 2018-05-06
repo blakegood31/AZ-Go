@@ -21,7 +21,7 @@ class Board():
         self.pieces = np.zeros((self.n,self.n))
 
         self.ko = None
-        self.komi = 1 if n<=6 else 7.5
+        self.komi = 1 if n<=7 else 7.5
         self.handicaps = []
         self.history = []
         self.num_black_prisoners = 0

@@ -33,8 +33,8 @@ class InterGame(object):
         self.gameStatus=0
         if NetType=='ResNet':
             self.AlphaNet=nn(self.game,t='RES')
-            self.AlphaNet.load_checkpoint('/home/zc1213/course/alphabackend/alphabrain/HistoryLog/Go/R_Ver2_checkpoint/{}/'.format(BoardSize),'RVer2.best.pth.tar')
-            self.AlphaArgs = dotdict({'numMCTSSims': 2000, 'cpuct':17.3})
+            self.AlphaNet.load_checkpoint('/home/zc1213/course/alphabackend/alphabrain/HistoryLog/Go/R_Ver2_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
+            self.AlphaArgs = dotdict({'numMCTSSims': 2000, 'cpuct':21.3})
             self.AlphaMCTS = MCTS(self.game, self.AlphaNet,self.AlphaArgs)
             self.Alpha= lambda x: np.argmax(self.AlphaMCTS.getActionProb(x, temp=0))
         else:
@@ -43,9 +43,13 @@ class InterGame(object):
             self.AlphaArgs = dotdict({'numMCTSSims': 2000, 'cpuct':17.3})
             self.AlphaMCTS = MCTS(self.game, self.AlphaNet,self.AlphaArgs)
             self.Alpha= lambda x: np.argmax(self.AlphaMCTS.getActionProb(x, temp=0))
-
+        self.alphaMoveCache={}
     def initialize(self):
         self.board=self.game.getInitBoard()
+        self.alphaMoveCache={}
+        return True
+    def getScore(self):
+        return self.game.getScore(self.board)
     def judgeGame(self):
         self.gameStatus=self.game.getGameEnded(self.board,self.curPlayer)
         if self.gameStatus==-1:
@@ -57,6 +61,18 @@ class InterGame(object):
         else:
             print("game continues.")
             return 0
+    def getAlphaPlayFromCache(self,humanMove):
+        if humanMove in list(self.alphaMoveCache.keys()):
+            print("have cached, get from cache")
+            return self.alphaMoveCache[humanMove]
+        else:
+            print("new request,come back later")
+            self.alphaMoveCache={}
+            self.alphaMoveCache.update({
+                humanMove:self.AlphaPlay()
+            })
+            return self.alphaMoveCache[humanMove]
+            
     def AlphaPlay(self,*move):
         assert(self.judgeGame()==0)
         
@@ -67,8 +83,8 @@ class InterGame(object):
             print(action)
             assert valids[action] >0
         self.board, self.curPlayer = self.game.getNextState(self.board, self.curPlayer, action)
-
-        return (int(action / self.n), action % self.n)
+        alphaMove= (int(action / self.n), int(action % self.n))
+        return alphaMove
 
     def HumanPlay(self,move):
         assert(self.judgeGame()==0)
