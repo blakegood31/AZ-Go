@@ -33,13 +33,13 @@ class InterGame(object):
         self.gameStatus=0
         if NetType=='ResNet':
             self.AlphaNet=nn(self.game,t='RES')
-            self.AlphaNet.load_checkpoint('./HistoryLog/Go/R_Ver2_checkpoint/{}/'.format(BoardSize),'RVer2.best.pth.tar')
+            self.AlphaNet.load_checkpoint('/home/zc1213/course/alphabackend/alphabrain/HistoryLog/Go/R_Ver2_checkpoint/{}/'.format(BoardSize),'RVer2.best.pth.tar')
             self.AlphaArgs = dotdict({'numMCTSSims': 2000, 'cpuct':17.3})
             self.AlphaMCTS = MCTS(self.game, self.AlphaNet,self.AlphaArgs)
             self.Alpha= lambda x: np.argmax(self.AlphaMCTS.getActionProb(x, temp=0))
         else:
             self.AlphaNet=nn(self.game,t='CNN')
-            self.AlphaNet.load_checkpoint('./HistoryLog/Go/C_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
+            self.AlphaNet.load_checkpoint('/home/zc1213/course/alphabackend/alphabrain/HistoryLog/Go/C_checkpoint/{}/'.format(BoardSize),'best.pth.tar')
             self.AlphaArgs = dotdict({'numMCTSSims': 2000, 'cpuct':17.3})
             self.AlphaMCTS = MCTS(self.game, self.AlphaNet,self.AlphaArgs)
             self.Alpha= lambda x: np.argmax(self.AlphaMCTS.getActionProb(x, temp=0))

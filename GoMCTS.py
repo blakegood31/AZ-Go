@@ -4,7 +4,10 @@ import time
 try:
     from .go.GoGame import display    
 except:
-    from go.GoGame import display
+    try:
+        from alphabrain.go.GoGame import display
+    except:
+        from go.GoGame import display
 
     
 class MCTS():

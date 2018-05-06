@@ -3,8 +3,12 @@ try:
     from Game import Game
     from GoLogic import Board
 except:
-    from Game import Game
-    from .GoLogic import Board
+    try:
+        from alphabrain.Game import Game
+        from alphabrain.go.GoLogic import Board
+    except:
+        from Game import Game
+        from go.GoLogic import Board
 import numpy as np
 
 
