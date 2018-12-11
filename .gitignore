@@ -8,7 +8,7 @@ HistoryLog/Go/checkpoint/checkpoint*
 *.pyc
 .DS_Store
 sbatch_script.sh
-*.ipynb
+#*.ipynb
 .ipy*
 /temp/
 /.project
