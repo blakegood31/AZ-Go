@@ -3,7 +3,7 @@ import torch.utils.model_zoo as model_zoo
 import torch
 import torchvision as tv
 import torch.nn as nn
-from torch.nn.functional import Variable
+#from torch.nn.functional import Variable
 from scipy import misc
 import math
 import torch.nn.functional as F
