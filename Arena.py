@@ -26,7 +26,7 @@ class Arena():
 
 
 
-    def playGame(self, verbose=False):
+    def playGame(self, verbose=True):
         """
         Executes one episode of a game.
 
@@ -43,7 +43,7 @@ class Arena():
         while self.game.getGameEnded(board, curPlayer)==0:
             it+=1
             if verbose:
-                assert(self.display)
+                #assert(self.display)
                 print("Turn ", str(it), "Player ", str(curPlayer))
                 self.display(board)
             action = players[curPlayer+1](self.game.getCanonicalForm(board, curPlayer))
@@ -52,15 +52,15 @@ class Arena():
 
             if valids[action]==0:
                 print(action)
-                assert valids[action] >0
+                #assert valids[action] >0
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
         if verbose:
-            assert(self.display)
+            #assert(self.display)
             print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
             self.display(board)
         return self.game.getGameEnded(board, 1)
 
-    def playGames(self, num, verbose=False):
+    def playGames(self, num, verbose=True):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
         num/2 games.
