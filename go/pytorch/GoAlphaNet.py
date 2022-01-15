@@ -1,16 +1,9 @@
-import numpy as np
 import torch.utils.model_zoo as model_zoo
-import torch
-import torchvision as tv
 import torch.nn as nn
-#from torch.nn.functional import Variable
-from scipy import misc
 import math
 import torch.nn.functional as F
 
 from torchvision.models.resnet import ResNet
-from torchvision.models.resnet import BasicBlock
-from torchvision.models.resnet import Bottleneck
 
 __all__ = ['ResNet']
 
@@ -67,9 +60,6 @@ class AlphaBottleneck(nn.Module):
         out = self.relu(out)
 
         return out
-
-
-
 
 class AlphaBlock(nn.Module):
     expansion = 1
@@ -154,41 +144,27 @@ class AlphaNet(ResNet):
 
 
     def forward(self, x):
-        # print("input x shape:{}".format(x.shape))
         x= x.view(-1, 1, self.board_x, self.board_y)
-        # x=x.view(1,*x.shape)
-
-        # print("view output:{}".format(x.shape))
 
         x = self.conv1(x)
-        # print("conv1 output:{}".format(x.shape))
         x = self.bn1(x)
-        # print("bn1 output:{}".format(x.shape))
         x = self.relu(x)
-        # print("relu output:{}".format(x.shape))
         x = self.maxpool(x)
-        # print("maxpool output:{}".format(x.shape))
 
         x = self.layer1(x)
-        # print("layer1 output:{}".format(x.shape))
         x = self.layer2(x)
-        # print("layer2 output:{}".format(x.shape))
         x = self.layer3(x)
-        # print("layer3 output:{}".format(x.shape))
         x = self.layer4(x)
-        # print("layer4 output:{}".format(x.shape))
 
         try:
             x = self.avgpool(x)
         except:
             pass
-        # print("avgpool output:{}".format(x.shape))
+        
         x = x.view(x.size(0), -1)
         p = self.fc_p(x)
-        # print("p output:{}".format(p.shape))
         v = self.fc_v(x)
-        # print("v output:{}".format(p.shape))
-        return F.log_softmax(p,dim=1),F.tanh(v)
+        return F.log_softmax(p,dim=1), F.tanh(v)
 
 class AlphaNetMaker:
     def __init__(self,game,args):
@@ -196,12 +172,12 @@ class AlphaNetMaker:
         self.game=game
         self.args=args
     def makeNet(self):
-        if self.n<=11:
-            print("[LOG]:Input board size is {}*{}, using ResNet-{}.".format(self.n,self.n,18))
-            return self.resnet18(self.game,self.args)
+        if self.n <= 11:
+            print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 18))
+            return self.resnet18(self.game, self.args)
         else:
-            print("[LOG]:Input board size is {}*{}, using ResNet-{}.".format(self.n,self.n,34))
-            return self.resnet34(self.game,self.args)
+            print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 34))
+            return self.resnet34(self.game, self.args)
 
     def resnet18(self,game,args,pretrained=False):
         """Constructs a ResNet-18 model.

@@ -2,18 +2,20 @@ from GoCoach import Coach
 from go.GoGame import GoGame as Game
 from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
-import datetime
-import time,os,sys
+import os,sys
+from enum import Enum
 
 sys.setrecursionlimit(5000)
 
+class Display(Enum):
+    NO_DISPLAY = 0
+    DISPLAY_BAR = 1
+    DISPLAY_BOARD = 2
+
 BoardSize=7
-NetType='C'
+NetType='CNN' # or 'RES'
 tag='MCTS_SimModified'
-#NetType='R'
-DIS_BOARD=2
-DIS_BAR=1
-NO_DIS=0
+
 args = dotdict({
     'numIters': 1000,
     'numEps': 100,
@@ -24,28 +26,27 @@ args = dotdict({
     'arenaCompare': 50,
     'cpuct': 3,
 
-    'checkpoint': './HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+'_'+tag,BoardSize),
+    'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': True,
-    'load_folder_file': ('./HistoryLog/Go/{}_checkpoint/{}/'.format(NetType+'_'+tag,BoardSize),'best.pth.tar'),
     'numItersForTrainExamplesHistory': 25,
-    'display':NO_DIS #True to display board, False to display progress bar
+    'display': Display.NO_DISPLAY
 })
 
 if __name__=="__main__":
 
     g = Game(BoardSize)
-    nnet = nn(g,t='RES' if NetType=='R' else 'CNN')
-    logPath='./HistoryLog/Go/{}_Log/{}/'.format(NetType+'_'+tag,BoardSize)
+    nnet = nn(g, t=NetType)
+    logPath='./logs/go/{}_log/{}/'.format(NetType + '_' + tag, BoardSize)
     try:
         os.makedirs(logPath)
     except:
         pass
 
     if args.load_model:
-        nnet.load_checkpoint(args.load_folder_file[0], args.load_folder_file[1])
+        nnet.load_checkpoint(args.checkpoint, 'best.pth.tar')
 
-    c = Coach(g, nnet, args,log=True,logPath=logPath)
+    c = Coach(g, nnet, args, log=True, logPath=logPath)
     if args.load_model:
-        print("Load trainExamples from file")
+        print("Loading trainExamples from file")
         c.loadTrainExamples()
     c.learn()

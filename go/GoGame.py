@@ -39,10 +39,9 @@ class GoGame(Game):
             return (b, -player)
 
         move = (int(action / self.n), action % self.n)
-        # display(b)
-        # print(player,move)
+
         b.execute_move(move,player)
-        # display(b)
+
         return (b, -player)
 
     # modified
@@ -51,15 +50,13 @@ class GoGame(Game):
         valids = [0 for i in range(self.getActionSize())]
         b = board.copy()
         legalMoves = b.get_legal_moves(player)
-        # display(board)
-        # print("legal moves{}".format(legalMoves))
+
         if len(legalMoves) == 0:
             valids[-1] = 1
             return np.array(valids)
         for x, y in legalMoves:
             valids[self.n * x + y] = 1
-        # display(b)
-        # print(legalMoves)
+
         return np.array(valids)
 
     # modified
@@ -69,7 +66,7 @@ class GoGame(Game):
 
         winner = 0
         (score_black, score_white) = self.getScore(board)
-        by_score = 0.5 * (board.n*board.n + board.komi)
+        by_score = 0.5 * (board.n * board.n + board.komi)
 
         if len(board.history) > 1:
             if (board.history[-1] is None and board.history[-2] is None\
@@ -90,7 +87,7 @@ class GoGame(Game):
                     # Tie
                     winner = 1e-4
         if returnScore:
-            return winner,(score_black, score_white)
+            return winner, (score_black, score_white)
         return winner
 
     def getScore(self, board):
@@ -113,9 +110,6 @@ class GoGame(Game):
         canonicalBoard=board.copy()
 
         canonicalBoard.pieces= board.pieces* player
-
-        # print('getting canon:')
-        # print(b_pieces)
         return canonicalBoard
 
     # modified

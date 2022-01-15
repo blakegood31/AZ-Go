@@ -1,23 +1,14 @@
-import argparse
 import os
-import shutil
 import time
-import random
 import numpy as np
-import math
 import sys
 sys.path.append('../../')
+
 import pandas as pd
-import argparse
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-from torchvision import datasets, transforms
 from torch.autograd import Variable
 
-
-from .GoAlphaNet import AlphaNet as alpNet
 from .GoAlphaNet import AlphaNetMaker as NetMaker
 from .GoNNet import GoNNet
 
@@ -41,16 +32,14 @@ args = dotdict({
 
 print(args)
 
-
 class NNetWrapper(NeuralNet):
-    def __init__(self, game,t='RES'):
-        self.netType=t
-        if t=='RES':
-        # self.nnet = onnet(game, args)
-            netMkr=NetMaker(game,args)
+    def __init__(self, game, t='RES'):
+        self.netType = t
+        if t =='RES':
+            netMkr=NetMaker(game, args)
             self.nnet=netMkr.makeNet()
         else:
-            self.nnet=GoNNet(game,args)
+            self.nnet=GoNNet(game, args)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
@@ -62,10 +51,10 @@ class NNetWrapper(NeuralNet):
         examples: list of examples, each example is of form (board, pi, v)
         """
         optimizer = optim.Adam(self.nnet.parameters())
-        trainLog={
-            'EPOCH':[],
-            'P_LOSS':[],
-            'V_LOSS':[]
+        trainLog = {
+            'EPOCH': [],
+            'P_LOSS': [],
+            'V_LOSS': []
         }
 
         for epoch in range(args.epochs):
@@ -95,11 +84,8 @@ class NNetWrapper(NeuralNet):
 
                 # measure data loading time
                 data_time.update(time.time() - end)
-                # print(boards.shape)
                 # compute output
                 out_pi, out_v = self.nnet(boards)
-                # print(out_pi,target_pis)
-                # print(out_v,target_vs)
 
                 l_pi = self.loss_pi(target_pis, out_pi)
                 l_v = self.loss_v(target_vs, out_v)
@@ -138,27 +124,20 @@ class NNetWrapper(NeuralNet):
             bar.finish()
 
         return pd.DataFrame(data=trainLog)
-
-
+        
     def predict(self, board):
         """
         board: np array with board
         """
-        # timing
-        start = time.time()
-
         # preparing input
         board = torch.FloatTensor(board.astype(np.float64))
         if args.cuda: board = board.contiguous().cuda()
-        # print(board)
         board = Variable(board,requires_grad=False)
         board = board.view(1, self.board_x, self.board_y)
 
         self.nnet.eval()
 
         pi, v = self.nnet(board)
-
-        # print('PREDICTION TIME TAKEN : {0:03f}'.format(time.time()-start))
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
@@ -176,7 +155,7 @@ class NNetWrapper(NeuralNet):
         else:
             print("Checkpoint Directory exists! ")
         torch.save({
-            'state_dict' : self.nnet.state_dict(),
+            'state_dict': self.nnet.state_dict(),
         }, filepath)
 
     def load_checkpoint(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):

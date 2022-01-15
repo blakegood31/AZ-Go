@@ -50,27 +50,27 @@ class Coach():
             episodeStep += 1
             if self.display == 2:
                 print("================Episode step:{}=====CURPLAYER:{}==========".format(episodeStep,"White" if self.curPlayer==-1 else "Black"))
-            canonicalBoard = self.game.getCanonicalForm(board,self.curPlayer)
+            canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
             pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-
+            # get different symmetries/rotations of the board
             sym = self.game.getSymmetries(canonicalBoard, pi)
             for b,p in sym:
                 trainExamples.append([b, self.curPlayer, p, None])
             action = np.random.choice(len(pi), p=pi)
 
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
-            if self.display ==2:
+            if self.display == 2:
                 print("BOARD updated:")
                 display(board)
-            r= self.game.getGameEnded(board.copy(), self.curPlayer,returnScore=False)
+            r = self.game.getGameEnded(board.copy(), self.curPlayer,returnScore=False)
             # print(score)
-            if r!=0:
-                if self.display==2:
+            if r != 0:
+                if self.display == 2:
                     print("Current episode ends, {} wins with score :B:{};W:{}.".format('Black' if r==1 else 'White',score[0],score[1]))
                     
-                return [(x[0],x[2],r*((-1)**(x[1]!=self.curPlayer))) for x in trainExamples]
+                return [(x[0], x[2], r * ((-1)**(x[1]!=self.curPlayer)) ) for x in trainExamples]
 
     def learn(self):
         """
