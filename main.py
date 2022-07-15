@@ -27,9 +27,9 @@ args = dotdict({
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
-    'load_model': True,
+    'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.NO_DISPLAY
+    'display': Display.DISPLAY_BOARD
 })
 
 if __name__=="__main__":
