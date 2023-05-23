@@ -92,8 +92,8 @@ class NNetWrapper(NeuralNet):
                 total_loss = l_pi + l_v
 
                 # record loss
-                pi_losses.update(l_pi.data, boards.size(0))
-                v_losses.update(l_v.data, boards.size(0))
+                pi_losses.update(l_pi.data.cpu(), boards.size(0))
+                v_losses.update(l_v.data.cpu(), boards.size(0))
 
                 # compute gradient and do SGD step
                 optimizer.zero_grad()
