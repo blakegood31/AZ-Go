@@ -87,6 +87,11 @@ class Coach():
             iterHistory['ITER'].append(i)
             # bookkeeping
             print('###########################ITER:{}###########################'.format(str(i)))
+            episode_log = open('logs/go/Game_History.txt', 'a')
+            episode_log.write("##########################################\n")
+            episode_log.write("ITERATION: " + str(i) + "\n")
+            episode_log.write("##########################################\n\n")
+            episode_log.close()
             # examples of the iteration
             if not self.skipFirstSelfPlay or i>1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
@@ -142,7 +147,7 @@ class Coach():
             print('PITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                           lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game,display=display)
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+            pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
 
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins+nwins > 0 and float(nwins)/(pwins+nwins) < self.args.updateThreshold:

@@ -4,8 +4,10 @@ from go.pytorch.NNet import NNetWrapper as nn
 from utils import *
 import os,sys
 from enum import Enum
+from datetime import datetime
 
 sys.setrecursionlimit(5000)
+
 
 class Display(Enum):
     NO_DISPLAY = 0
@@ -17,13 +19,13 @@ NetType='CNN' # or 'RES'
 tag='MCTS_SimModified'
 
 args = dotdict({
-    'numIters': 5,
-    'numEps': 5,
+    'numIters': 2,
+    'numEps': 2,
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 200,
-    'arenaCompare': 5,
+    'arenaCompare': 2,
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
@@ -44,7 +46,20 @@ if __name__=="__main__":
         pass
 
     #########################################
-    
+    episode_log = open('logs/go/Game_History.txt', 'w')
+    episode_log.write("############################################################\n")
+    episode_log.write("This file contains visual representations of the game\n")
+    episode_log.write("boards when pitting the current model against itself.\n\n")
+    episode_log.write("Specific games and iterations can be found by searching\n")
+    episode_log.write("the text file for g{game #}i{iteration #}.\n")
+    episode_log.write("Example: Game 1 in Iteration 2 -- g1i2\n\n")
+    episode_log.write("Data collected during training on " + str(datetime.now()) + "\n\n")
+    episode_log.write("Total number of iterations: " + str(args['numIters']) + "\n")
+    episode_log.write("Number of episodes per iteration: " + str(args['numEps']) + "\n")
+    episode_log.write("Number of MCTS simulations: " + str(args['numMCTSSims']) + "\n")
+    episode_log.write("Number of arena compares: " + str(args['arenaCompare']) + "\n")
+    episode_log.write("############################################################\n\n")
+    episode_log.close()
 
     if args.load_model:
         nnet.load_checkpoint(args.checkpoint, 'best.pth.tar')
@@ -54,3 +69,4 @@ if __name__=="__main__":
         print("Loading trainExamples from file")
         c.loadTrainExamples()
     c.learn()
+    episode_log.close()

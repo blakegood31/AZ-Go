@@ -40,16 +40,15 @@ class Arena():
         curPlayer = 1
         board = self.game.getInitBoard()
         it = 0
-        episode_log = open('logs/go/Game_History.txt', 'w')
+        episode_log = open('logs/go/Game_History.txt', 'a')
         while self.game.getGameEnded(board, curPlayer)==0:
             it+=1
             if verbose:
                 #assert(self.display)
                 print("Turn ", str(it), "Player ", str(curPlayer))
-                episode_log.write("Turn " + str(it) + "Player " + str(curPlayer))
+                episode_log.write("Turn: " + str(it) + "   Player: " + str(curPlayer) + "\n")
                 recentBoard = self.display(board)
                 episode_log.write(recentBoard)
-                episode_log.write("-------------------------------------")
                 episode_log.write("\n\n")
             action = players[curPlayer+1](self.game.getCanonicalForm(board, curPlayer))
 
@@ -62,10 +61,15 @@ class Arena():
         if verbose:
             #assert(self.display)
             print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
-            self.display(board)
+            episode_log.write("##Game over: Turn "+ str(it) + " Result "+ str(self.game.getGameEnded(board, 1)) + " ##\n")
+            episode_log.write("Final Board Configuration: \n")
+            recentBoard2 = self.display(board)
+            episode_log.write(recentBoard2 + "\n\n\n")
+            
+            episode_log.close()
         return self.game.getGameEnded(board, 1)
 
-    def playGames(self, num, verbose=True):
+    def playGames(self, num, iter, verbose=True):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
         num/2 games.
@@ -75,6 +79,8 @@ class Arena():
             twoWon: games won by player2
             draws:  games won by nobody
         """
+        episode_log = open('logs/go/Game_History.txt', 'a')
+
         eps_time = AverageMeter()
         bar = Bar('Arena.playGames', max=num)
         end = time.time()
@@ -86,6 +92,10 @@ class Arena():
         twoWon = 0
         draws = 0
         for _ in range(num):
+            episode_log.write("#############################\n")
+            episode_log.write("Playing Game #" + str(eps+1) + "  (g" + str(eps+1) + "i" + str(iter) + ")\n")
+            episode_log.write("#############################\n\n")
+            episode_log.close()
             gameResult = self.playGame(verbose=verbose)
             if gameResult==1:
                 oneWon+=1
@@ -103,7 +113,13 @@ class Arena():
 
         self.player1, self.player2 = self.player2, self.player1
         
+
+        episode_log = open('logs/go/Game_History.txt', 'a')
         for _ in range(num):
+            episode_log.write("#############################\n")
+            episode_log.write("Playing Game #" + str(eps+1) + "  (g" + str(eps+1) + "i" + str(iter) + ")\n")
+            episode_log.write("#############################\n\n")
+            episode_log.close()
             gameResult = self.playGame(verbose=verbose)
             if gameResult==-1:
                 oneWon+=1                
