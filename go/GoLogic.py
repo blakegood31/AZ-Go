@@ -43,7 +43,7 @@ class Board():
                 self.liberty_sets[x][y] = set(self._neighbors((x, y)))
         # separately cache the 2D numpy array of the _size_ of liberty sets
         # at each board position
-        self.liberty_counts = np.zeros((n, n), dtype=np.int)
+        self.liberty_counts = np.zeros((n, n), dtype=np.int_)
         self.liberty_counts.fill(-1)
         # initialize liberty_sets of empty board: the set of neighbors of each position
         # similarly to `liberty_sets`, `group_sets[x][y]` points to a set of tuples
@@ -51,7 +51,7 @@ class Board():
         self.group_sets = [[set() for _ in range(n)] for _ in range(n)]
 
         # on-the-fly record of 'age' of each stone
-        self.stone_ages = np.zeros((n, n), dtype=np.int) - 1
+        self.stone_ages = np.zeros((n, n), dtype=np.int_) - 1
 
         self.enforce_superko = False
         rng = np.random.RandomState(0)
