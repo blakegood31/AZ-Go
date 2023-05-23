@@ -40,12 +40,17 @@ class Arena():
         curPlayer = 1
         board = self.game.getInitBoard()
         it = 0
+        episode_log = open('logs/go/Game_History.txt', 'w')
         while self.game.getGameEnded(board, curPlayer)==0:
             it+=1
             if verbose:
                 #assert(self.display)
                 print("Turn ", str(it), "Player ", str(curPlayer))
-                self.display(board)
+                episode_log.write("Turn " + str(it) + "Player " + str(curPlayer))
+                recentBoard = self.display(board)
+                episode_log.write(recentBoard)
+                episode_log.write("-------------------------------------")
+                episode_log.write("\n\n")
             action = players[curPlayer+1](self.game.getCanonicalForm(board, curPlayer))
 
             valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer),1)
