@@ -64,8 +64,8 @@ class Coach():
             if self.display == 2:
                 print("BOARD updated:")
                 display(board)
-            r = self.game.getGameEnded(board.copy(), self.curPlayer,returnScore=False)
-            # print(score)
+            r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
+            print(score)
             if r != 0:
                 if self.display == 2:
                     print("Current episode ends, {} wins with score :B:{};W:{}.".format('Black' if r==1 else 'White',score[0],score[1]))

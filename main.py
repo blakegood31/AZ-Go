@@ -29,7 +29,8 @@ args = dotdict({
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.DISPLAY_BOARD
+    # temporary for debugging since enum is not working properly
+    'display': 2
 })
 
 if __name__=="__main__":
