@@ -68,7 +68,7 @@ class Coach():
             print(score)
             if r != 0:
                 if self.display == 2:
-                    print("Current episode ends, {} wins with score :B:{};W:{}.".format('Black' if r==1 else 'White',score[0],score[1]))
+                    print("Current episode ends, {} wins with score :B:{};W:{}.".format('Black' if r == -1 else 'White', score[0], score[1]))
                     
                 return [(x[0], x[2], r * ((-1)**(x[1]!=self.curPlayer)) ) for x in trainExamples]
 
