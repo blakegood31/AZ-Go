@@ -12,18 +12,18 @@ class Display(Enum):
     DISPLAY_BAR = 1
     DISPLAY_BOARD = 2
 
-BoardSize=7
+BoardSize=5
 NetType='CNN' # or 'RES'
 tag='MCTS_SimModified'
 
 args = dotdict({
-    'numIters': 1000,
-    'numEps': 100,
+    'numIters': 2,
+    'numEps': 2,
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 200,
-    'arenaCompare': 50,
+    'arenaCompare': 2,
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
@@ -42,6 +42,9 @@ if __name__=="__main__":
         os.makedirs(logPath)
     except:
         pass
+
+    #########################################
+    
 
     if args.load_model:
         nnet.load_checkpoint(args.checkpoint, 'best.pth.tar')
