@@ -93,11 +93,7 @@ class Arena():
         twoWon = 0
         draws = 0
         for _ in range(num):
-            episode_log = open('logs/go/Game_History.txt', 'a')
-            episode_log.write("#############################\n")
-            episode_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
-            episode_log.write("#############################\n\n")
-            episode_log.close()
+            
             gameResult = self.playGame(verbose=verbose)
             if gameResult == 1:
                 oneWon += 1
@@ -109,18 +105,20 @@ class Arena():
             eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
-            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps+1, maxeps=maxeps, et=eps_time.avg,
+            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps, maxeps=maxeps, et=eps_time.avg,
                                                                                                        total=bar.elapsed_td, eta=bar.eta_td)
             bar.next()
+
+            episode_log = open('logs/go/Game_History.txt', 'a')
+            episode_log.write("#############################\n")
+            episode_log.write("Playing Game #" + str(eps) + "  (g" + str(eps) + "i" + str(iter) + ")\n")
+            episode_log.write("#############################\n\n")
+            episode_log.close()
 
         self.player1, self.player2 = self.player2, self.player1
 
         for _ in range(num):
-            episode_log = open('logs/go/Game_History.txt', 'a')
-            episode_log.write("#############################\n")
-            episode_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
-            episode_log.write("#############################\n\n")
-            episode_log.close()
+           
             gameResult = self.playGame(verbose=verbose)
             if gameResult == -1:
                 oneWon += 1
@@ -132,12 +130,19 @@ class Arena():
             eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
-            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps + 1,
-                                                                                                       maxeps=num,
+            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps,
+                                                                                                       maxeps=maxeps,
                                                                                                        et=eps_time.avg,
                                                                                                        total=bar.elapsed_td,
                                                                                                        eta=bar.eta_td)
             bar.next()
+
+            episode_log = open('logs/go/Game_History.txt', 'a')
+            episode_log.write("#############################\n")
+            episode_log.write("Playing Game #" + str(eps) + "  (g" + str(eps) + "i" + str(iter) + ")\n")
+            episode_log.write("#############################\n\n")
+            episode_log.close()
+
 
         bar.finish()
 
