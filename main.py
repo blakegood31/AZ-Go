@@ -19,13 +19,13 @@ NetType='CNN' # or 'RES'
 tag='MCTS_SimModified'
 
 args = dotdict({
-    'numIters': 2,
-    'numEps': 2,
+    'numIters': 10,
+    'numEps': 5,
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 200,
-    'arenaCompare': 2,
+    'arenaCompare': 5,
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
