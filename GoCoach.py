@@ -89,7 +89,11 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
+
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESTULT': []}
+        winRate = []
+        newWins = []
+
 
         for i in range(1, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
@@ -159,7 +163,8 @@ class Coach():
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                           lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, display=display)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
-
+            winRate.append(nwins/self.args.arenaCompare)
+            newWins.append(nwins)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
                 print('REJECTING NEW MODEL')
@@ -171,9 +176,24 @@ class Coach():
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
+
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
         self.saveNNLossPlot()
+
+            pd.DataFrame(data=iterHistory).to_csv(self.logPath+'ITER_LOG.csv')
+
+        #Plot win rate of models over training
+        iterations = range(1, self.args.numIters+1)
+        plt.plot(iterations, winRate, 'r', label = 'Win Rate')
+        plt.title('Arena Play Win Rates (New Model vs. Old Model)')
+        plt.xlabel('Iteration')
+        plt.ylabel('Win Rate (%)')
+        plt.legend()
+        plt.locator_params(axis = 'x', integer=True, tight=True)
+        plt.show(block=True)
+        plt.savefig('logs/go/Win_Rate_Plot.png')
+
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'

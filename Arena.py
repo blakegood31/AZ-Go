@@ -87,6 +87,7 @@ class Arena():
         end = time.time()
         eps = 0
         maxeps = int(num)
+        originalNum = num
 
         num = int(num / 2)
         oneWon = 0
@@ -116,6 +117,9 @@ class Arena():
             episode_log.close()
 
         self.player1, self.player2 = self.player2, self.player1
+
+        if(originalNum%2 == 1):
+            num += 1
 
         for _ in range(num):
            
