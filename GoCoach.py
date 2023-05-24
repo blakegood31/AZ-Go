@@ -49,7 +49,7 @@ class Coach():
 
             episodeStep += 1
             if self.display == 2:
-                print("================Episode step:{}=====CURPLAYER:{}==========".format(episodeStep,"White" if self.curPlayer==-1 else "Black"))
+                print("================Episode Step:{}=====CURPLAYER:{}==========".format(episodeStep,"White" if self.curPlayer==-1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
@@ -65,12 +65,13 @@ class Coach():
                 print("BOARD updated:")
                 display(board)
             r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
-            print(score)
             if r != 0:
                 if self.display == 2:
-                    print("Current episode ends, {} wins with score :B:{};W:{}.".format('Black' if r == -1 else 'White', score[0], score[1]))
+                    print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White', score[0], score[1]))
                     
                 return [(x[0], x[2], r * ((-1)**(x[1]!=self.curPlayer)) ) for x in trainExamples]
+            else:
+                print(f"Current score: b {score[0]}, W {score[1]}")
 
     def learn(self):
         """
@@ -144,7 +145,7 @@ class Coach():
             iterHistory['ITER_DETAIL'].append(self.logPath+'ITER_{}_TRAIN_LOG.csv'.format(i))
             nmcts = MCTS(self.game, self.nnet, self.args)
 
-            print('PITTING AGAINST PREVIOUS VERSION')
+            print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                           lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game,display=display)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)

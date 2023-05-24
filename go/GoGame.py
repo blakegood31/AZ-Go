@@ -168,6 +168,6 @@ def display(board):
         print("|")
         currState += "|\n"
 
-    print("   -----------------------")
+    print(" -----------------------")
     currState += " -----------------------\n"
     return currState

@@ -6,6 +6,7 @@ class Arena():
     """
     An Arena class where any 2 agents can be pit against each other.
     """
+
     def __init__(self, player1, player2, game, display=None):
         """
         Input:
@@ -23,9 +24,6 @@ class Arena():
         self.game = game
         self.display = display
 
-
-
-
     def playGame(self, verbose=True):
         """
         Executes one episode of a game.
@@ -41,32 +39,37 @@ class Arena():
         board = self.game.getInitBoard()
         it = 0
         episode_log = open('logs/go/Game_History.txt', 'a')
-        while self.game.getGameEnded(board, curPlayer)==0:
-            it+=1
+        while self.game.getGameEnded(board, curPlayer) == 0:
+            it += 1
             if verbose:
-                #assert(self.display)
-                print("Turn ", str(it), "Player ", str(curPlayer))
+                # assert(self.display)
+                print("\nTurn ", str(it), "Player ", str(curPlayer))
                 episode_log.write("Turn: " + str(it) + "   Player: " + str(curPlayer) + "\n")
-                recentBoard = self.display(board)
-                episode_log.write(recentBoard)
+                episode_log.write(self.display(board))
+                score = self.game.getScore(board)
+                print(f"Current score: b {score[0]}, W {score[1]}")
+                episode_log.write(f"Current score: b {score[0]}, W {score[1]}\n")
                 episode_log.write("\n\n")
-            action = players[curPlayer+1](self.game.getCanonicalForm(board, curPlayer))
+            action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer))
 
-            valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer),1)
+            valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
 
-            if valids[action]==0:
+            if valids[action] == 0:
                 print(action)
-                #assert valids[action] >0
+                # assert valids[action] >0
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
         if verbose:
-            #assert(self.display)
-            print("Game over: Turn ", str(it), "Result ", str(self.game.getGameEnded(board, 1)))
-            episode_log.write("##Game over: Turn "+ str(it) + " Result "+ str(self.game.getGameEnded(board, 1)) + " ##\n")
+            # assert(self.display)
+            r, score = self.game.getGameEnded(board, 1, returnScore=True)
+            print("\nGame over: Turn ", str(it), "Result ", str(r))
+            episode_log.write(
+                "## Game over: Turn " + str(it) + " Result " + str(self.game.getGameEnded(board, 1)) + " ##\n")
             episode_log.write("Final Board Configuration: \n")
-            recentBoard2 = self.display(board)
-            episode_log.write(recentBoard2 + "\n\n\n")
-            
-            episode_log.close()
+            episode_log.write(self.display(board))
+            episode_log.write(f"Final score: b (previous model) {score[0]}, W (current model) {score[1]}\n\n\n")
+            print(f"Final score: b {score[0]}, W {score[1]}\n")
+
+        episode_log.close()
         return self.game.getGameEnded(board, 1)
 
     def playGames(self, num, iter, verbose=True):
@@ -79,62 +82,63 @@ class Arena():
             twoWon: games won by player2
             draws:  games won by nobody
         """
-        episode_log = open('logs/go/Game_History.txt', 'a')
-
         eps_time = AverageMeter()
         bar = Bar('Arena.playGames', max=num)
         end = time.time()
         eps = 0
         maxeps = int(num)
 
-        num = int(num/2)
+        num = int(num / 2)
         oneWon = 0
         twoWon = 0
         draws = 0
         for _ in range(num):
+            episode_log = open('logs/go/Game_History.txt', 'a')
             episode_log.write("#############################\n")
-            episode_log.write("Playing Game #" + str(eps+1) + "  (g" + str(eps+1) + "i" + str(iter) + ")\n")
+            episode_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
             episode_log.write("#############################\n\n")
             episode_log.close()
             gameResult = self.playGame(verbose=verbose)
-            if gameResult==1:
-                oneWon+=1
-            elif gameResult==-1:
-                twoWon+=1
+            if gameResult == 1:
+                oneWon += 1
+            elif gameResult == -1:
+                twoWon += 1
             else:
-                draws+=1
+                draws += 1
             # bookkeeping + plot progress
             eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
-            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(eps=eps+1, maxeps=maxeps, et=eps_time.avg,
+            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps+1, maxeps=maxeps, et=eps_time.avg,
                                                                                                        total=bar.elapsed_td, eta=bar.eta_td)
             bar.next()
 
         self.player1, self.player2 = self.player2, self.player1
-        
 
-        episode_log = open('logs/go/Game_History.txt', 'a')
         for _ in range(num):
+            episode_log = open('logs/go/Game_History.txt', 'a')
             episode_log.write("#############################\n")
-            episode_log.write("Playing Game #" + str(eps+1) + "  (g" + str(eps+1) + "i" + str(iter) + ")\n")
+            episode_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
             episode_log.write("#############################\n\n")
             episode_log.close()
             gameResult = self.playGame(verbose=verbose)
-            if gameResult==-1:
-                oneWon+=1                
-            elif gameResult==1:
-                twoWon+=1
+            if gameResult == -1:
+                oneWon += 1
+            elif gameResult == 1:
+                twoWon += 1
             else:
-                draws+=1
+                draws += 1
             # bookkeeping + plot progress
             eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
-            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(eps=eps+1, maxeps=num, et=eps_time.avg,
-                                                                                                       total=bar.elapsed_td, eta=bar.eta_td)
+            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps + 1,
+                                                                                                       maxeps=num,
+                                                                                                       et=eps_time.avg,
+                                                                                                       total=bar.elapsed_td,
+                                                                                                       eta=bar.eta_td)
             bar.next()
-            
+
         bar.finish()
 
         return oneWon, twoWon, draws

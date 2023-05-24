@@ -54,6 +54,7 @@ if __name__=="__main__":
     episode_log.write("the text file for g{game #}i{iteration #}.\n")
     episode_log.write("Example: Game 1 in Iteration 2 -- g1i2\n\n")
     episode_log.write("Data collected during training on " + str(datetime.now()) + "\n\n")
+    episode_log.write("Player 1 is the current model; player -1 is the previous model.\n\n")
     episode_log.write("Total number of iterations: " + str(args['numIters']) + "\n")
     episode_log.write("Number of episodes per iteration: " + str(args['numEps']) + "\n")
     episode_log.write("Number of MCTS simulations: " + str(args['numMCTSSims']) + "\n")
@@ -69,4 +70,3 @@ if __name__=="__main__":
         print("Loading trainExamples from file")
         c.loadTrainExamples()
     c.learn()
-    episode_log.close()
