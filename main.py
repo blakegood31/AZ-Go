@@ -8,7 +8,6 @@ from datetime import datetime
 
 sys.setrecursionlimit(5000)
 
-
 class Display(Enum):
     NO_DISPLAY = 0
     DISPLAY_BAR = 1
@@ -69,4 +68,5 @@ if __name__=="__main__":
     if args.load_model:
         print("Loading trainExamples from file")
         c.loadTrainExamples()
+
     c.learn()
