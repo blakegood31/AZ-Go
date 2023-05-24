@@ -8,7 +8,6 @@ from datetime import datetime
 
 sys.setrecursionlimit(5000)
 
-
 class Display(Enum):
     NO_DISPLAY = 0
     DISPLAY_BAR = 1
@@ -19,13 +18,13 @@ NetType='CNN' # or 'RES'
 tag='MCTS_SimModified'
 
 args = dotdict({
-    'numIters': 2,
-    'numEps': 2,
+    'numIters': 10,
+    'numEps': 5,
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 200,
-    'arenaCompare': 2,
+    'arenaCompare': 5,
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
@@ -69,4 +68,5 @@ if __name__=="__main__":
     if args.load_model:
         print("Loading trainExamples from file")
         c.loadTrainExamples()
+
     c.learn()

@@ -92,8 +92,8 @@ class NNetWrapper(NeuralNet):
                 total_loss = l_pi + l_v
 
                 # record loss
-                pi_losses.update(l_pi.data.cpu(), boards.size(0))
-                v_losses.update(l_v.data.cpu(), boards.size(0))
+                pi_losses.update(l_pi.data.item(), boards.size(0))
+                v_losses.update(l_v.data.item(), boards.size(0))
 
                 # compute gradient and do SGD step
                 optimizer.zero_grad()
@@ -123,6 +123,8 @@ class NNetWrapper(NeuralNet):
             trainLog['V_LOSS'].append(v_losses.avg)
             bar.finish()
 
+        #### plot avg pi loss and v loss for all epochs in iteration
+
         return pd.DataFrame(data=trainLog)
         
     def predict(self, board):
@@ -141,7 +143,6 @@ class NNetWrapper(NeuralNet):
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
-
         return -torch.sum(targets*outputs)/targets.size()[0]
 
     def loss_v(self, targets, outputs):
