@@ -20,7 +20,7 @@ NetType = 'CNN'  # or 'RES'
 tag = 'MCTS_SimModified'
 
 args = dotdict({
-    'numIters': 2,
+    'numIters': 10,
     'numEps': 2,
     'tempThreshold': 15,
     'updateThreshold': 0.54,
@@ -32,16 +32,28 @@ args = dotdict({
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    # must be set to display_board for game_history to fill out properly
     'display': Display.NO_DISPLAY,
-    'datetime': datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+    'datetime': datetime.now().strftime("%d-%m-%Y %H:%M")
 })
 
 if __name__ == "__main__":
 
     g = Game(BoardSize)
     nnet = nn(g, t=NetType)
+
     logPath = './logs/go/{}_log/{}/'.format(NetType + '_' + tag, BoardSize)
+    try:
+        os.makedirs(logPath)
+    except:
+        pass
+
+    logPath = './logs/go/Game_Histories'
+    try:
+        os.makedirs(logPath)
+    except:
+        pass
+
+    logPath = './logs/go/Training_Results'
     try:
         os.makedirs(logPath)
     except:
