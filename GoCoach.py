@@ -30,6 +30,7 @@ class Coach():
         self.logPath = logPath
         self.p_loss_per_iteration = []
         self.v_loss_per_iteration = []
+        self.winRate = []
 
     def executeEpisode(self):
         """
@@ -91,8 +92,6 @@ class Coach():
         """
 
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESTULT': []}
-        winRate = []
-        newWins = []
 
 
         for i in range(1, self.args.numIters + 1):
@@ -163,8 +162,7 @@ class Coach():
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                           lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, display=display)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
-            winRate.append(nwins/self.args.arenaCompare)
-            newWins.append(nwins)
+            self.winRate.append(nwins/self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
                 print('REJECTING NEW MODEL')
@@ -181,18 +179,20 @@ class Coach():
 
         self.saveNNLossPlot()
 
-            pd.DataFrame(data=iterHistory).to_csv(self.logPath+'ITER_LOG.csv')
+        pd.DataFrame(data=iterHistory).to_csv(self.logPath+'ITER_LOG.csv')
 
         #Plot win rate of models over training
-        iterations = range(1, self.args.numIters+1)
-        plt.plot(iterations, winRate, 'r', label = 'Win Rate')
-        plt.title('Arena Play Win Rates (New Model vs. Old Model)')
-        plt.xlabel('Iteration')
-        plt.ylabel('Win Rate (%)')
-        plt.legend()
-        plt.locator_params(axis = 'x', integer=True, tight=True)
-        plt.show(block=True)
-        plt.savefig('logs/go/Win_Rate_Plot.png')
+        #iterations = range(1, self.args.numIters+1)
+        #plt.subplot(1, 3, 3)
+        #plt.plot(iterations, winRate, 'r', label = 'Win Rate')
+        #plt.axhline(y = 0.54, color = 'b', linestyle = '-')
+        #plt.title('Arena Play Win Rates (New Model vs. Old Model)')
+        #plt.xlabel('Iteration')
+        #plt.ylabel('Win Rate (%)')
+       # plt.legend()
+        #plt.locator_params(axis = 'x', integer=True, tight=True)
+        #plt.show(block=True)
+        #plt.savefig('logs/go/Win_Rate_Plot.png')
 
 
     def getCheckpointFile(self, iteration):
@@ -225,9 +225,9 @@ class Coach():
 
     # plot and save v/p loss after training
     def saveNNLossPlot(self):
-        plt.rcParams["figure.figsize"] = (14, 5)
+        plt.rcParams["figure.figsize"] = (20, 15)
 
-        plt.subplot(1, 2, 1)
+        plt.subplot(2, 2, 1)
         plt.title("V Loss During Training")
         plt.ylabel('V Loss')
         plt.xlabel('Iteration')
@@ -235,12 +235,23 @@ class Coach():
         plt.plot(self.v_loss_per_iteration, label="V Loss")
         plt.legend(loc='best')
 
-        plt.subplot(1, 2, 2)
+        plt.subplot(2, 2, 2)
         plt.title("P Loss During Training")
         plt.ylabel('P Loss')
         plt.xlabel('Iteration')
         plt.locator_params(axis='x', integer=True, tight=True)
         plt.plot(self.p_loss_per_iteration, label="P Loss")
         plt.legend(loc='best')
+
+        iterations = range(1, self.args.numIters+1)
+        plt.subplot(2, 2, 3)
+        plt.plot(iterations, self.winRate, 'r', label = 'Win Rate')
+        plt.axhline(y = 0.54, color = 'b', linestyle = '-')
+        plt.title('Arena Play Win Rates (New Model vs. Old Model)')
+        plt.xlabel('Iteration')
+        plt.ylabel('Win Rate (%)')
+        plt.legend()
+        plt.locator_params(axis = 'x', integer=True, tight=True)
+        plt.show(block=True)
 
         plt.savefig("logs/go/CNN_Training_Loss.png")

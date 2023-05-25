@@ -19,7 +19,7 @@ tag='MCTS_SimModified'
 
 args = dotdict({
     'numIters': 10,
-    'numEps': 5,
+    'numEps': 10,
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     'maxlenOfQueue': 200000,
