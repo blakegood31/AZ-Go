@@ -100,7 +100,7 @@ class Coach():
             iterHistory['ITER'].append(i)
             # bookkeeping
             print('###########################ITER:{}###########################'.format(str(i)))
-            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.args.datetime}.txt', 'a')
             arena_log.write("##########################################\n")
             arena_log.write("ITERATION: " + str(i) + "\n")
             arena_log.write("##########################################\n\n")
@@ -163,7 +163,7 @@ class Coach():
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, display=display,
+                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime, display=display,
                           displayValue=self.display.value)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
             self.winRate.append(nwins / self.args.arenaCompare)
@@ -233,14 +233,13 @@ class Coach():
         plt.plot(self.p_loss_per_iteration, label="P Loss")
         plt.legend(loc='best')
 
-        iterations = range(1, self.args.numIters + 1)
         plt.subplot(2, 2, 3)
         plt.title('Arena Play Win Rates (New Model vs. Old Model)')
         plt.xlabel('Iteration')
         plt.ylabel('Win Rate (%)')
         plt.locator_params(axis='x', integer=True, tight=True)
         plt.axhline(y=0.54, color='b', linestyle='-')
-        plt.plot(iterations, self.winRate, 'r', label='Win Rate')
+        plt.plot(self.winRate, 'r', label='Win Rate')
         plt.legend(loc='best')
 
-        plt.savefig("logs/go/Training_Result.png")
+        plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")

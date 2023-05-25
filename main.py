@@ -20,20 +20,21 @@ NetType = 'CNN'  # or 'RES'
 tag = 'MCTS_SimModified'
 
 args = dotdict({
-    'numIters': 10,
-    'numEps': 10,
+    'numIters': 2,
+    'numEps': 2,
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 200,
-    'arenaCompare': 10,
+    'arenaCompare': 2,
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
     # must be set to display_board for game_history to fill out properly
-    'display': Display.NO_DISPLAY
+    'display': Display.NO_DISPLAY,
+    'datetime': datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 })
 
 if __name__ == "__main__":
@@ -47,14 +48,14 @@ if __name__ == "__main__":
         pass
 
     # write header of Game_History.txt file
-    arena_log = open('logs/go/Game_History.txt', 'w')
+    arena_log = open(f'logs/go/Game_Histories/Game_History_{args.datetime}.txt', 'w')
     arena_log.write("############################################################\n")
     arena_log.write("This file contains visual representations of the game\n")
     arena_log.write("boards when pitting the current model against itself.\n\n")
     arena_log.write("Specific games and iterations can be found by searching\n")
     arena_log.write("the text file for g{game #}i{iteration #}.\n")
     arena_log.write("Example: Game 1 in Iteration 2 -- g1i2\n\n")
-    arena_log.write("Data collected during training on " + str(datetime.now()) + "\n\n")
+    arena_log.write(f"Data collected during training on {args.datetime}" + "\n\n")
     arena_log.write("Player 1 is the current model; player -1 is the previous model.\n\n")
     arena_log.write("Total number of iterations: " + str(args['numIters']) + "\n")
     arena_log.write("Number of episodes per iteration: " + str(args['numEps']) + "\n")

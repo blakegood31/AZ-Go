@@ -7,7 +7,7 @@ class Arena():
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game, display=None, displayValue=0):
+    def __init__(self, player1, player2, game, datetime, display=None, displayValue=0):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -24,6 +24,7 @@ class Arena():
         self.game = game
         self.display = display
         self.displayValue = displayValue
+        self.datetime = datetime
 
     def playGame(self, verbose=True):
         """
@@ -43,7 +44,7 @@ class Arena():
             it += 1
             if verbose:
                 score = self.game.getScore(board)
-                arena_log = open('logs/go/Game_History.txt', 'a')
+                arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
                 arena_log.write("Turn: " + str(it) + "   Player: " + str(curPlayer) + "\n")
                 arena_log.write(self.display(board))
                 arena_log.write(f"\nCurrent score: b {score[0]}, W {score[1]}\n")
@@ -69,7 +70,7 @@ class Arena():
             # assert(self.display)
             r, score = self.game.getGameEnded(board, 1, returnScore=True)
 
-            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
             arena_log.write(
                 "## Game over: Turn " + str(it) + " Result " + str(self.game.getGameEnded(board, 1)) + " ##\n")
             arena_log.write("Final Board Configuration: \n")
@@ -106,7 +107,7 @@ class Arena():
         twoWon = 0
         draws = 0
         for _ in range(num):
-            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
             arena_log.write("#############################\n")
             arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
             arena_log.write("#############################\n\n")
@@ -133,7 +134,7 @@ class Arena():
             num += 1
 
         for _ in range(num):
-            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
             arena_log.write("#############################\n")
             arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
             arena_log.write("#############################\n\n")
