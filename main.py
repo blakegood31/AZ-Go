@@ -32,7 +32,6 @@ args = dotdict({
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    # must be set to display_board for game_history to fill out properly
     'display': Display.NO_DISPLAY
 })
 
