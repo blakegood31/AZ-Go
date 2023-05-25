@@ -19,22 +19,29 @@ BoardSize = 5
 NetType = 'CNN'  # or 'RES'
 tag = 'MCTS_SimModified'
 
+
 args = dotdict({
-    'numIters': 10,
+    'numIters': 5,
     'numEps': 2,
     'tempThreshold': 15,
-    'updateThreshold': 0.54,
+    'updateThreshold': 0.0,
     'maxlenOfQueue': 200000,
     'numMCTSSims': 200,
     'arenaCompare': 2,
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
-    'load_model': False,
+    'load_model': True,
     'numItersForTrainExamplesHistory': 25,
     'display': Display.NO_DISPLAY,
-    'datetime': datetime.now().strftime("%d-%m-%Y %H:%M")
+    'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
 })
+
+if args.load_model:
+    checkpoint_dir = f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/'
+    checkpoint_files = [file for file in os.listdir(checkpoint_dir) if file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
+    latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
+    args['load_folder_file'] = [f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/', latest_checkpoint]
 
 if __name__ == "__main__":
 
