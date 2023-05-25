@@ -180,7 +180,7 @@ class Coach():
 
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
-        self.saveTrainingPlots()
+            self.saveTrainingPlots()
 
         pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
@@ -215,6 +215,9 @@ class Coach():
     # plot/save v/p loss after training
     # plot/save Arena Play Win Rates after arena
     def saveTrainingPlots(self):
+        # close previous graph
+        plt.close()
+
         plt.rcParams["figure.figsize"] = (18, 12)
 
         plt.subplot(2, 2, 1)
@@ -223,7 +226,6 @@ class Coach():
         plt.xlabel('Iteration')
         plt.locator_params(axis='x', integer=True, tight=True)
         plt.plot(self.v_loss_per_iteration, label="V Loss")
-        plt.legend(loc='best')
 
         plt.subplot(2, 2, 2)
         plt.title("P Loss During Training")
@@ -231,7 +233,6 @@ class Coach():
         plt.xlabel('Iteration')
         plt.locator_params(axis='x', integer=True, tight=True)
         plt.plot(self.p_loss_per_iteration, label="P Loss")
-        plt.legend(loc='best')
 
         plt.subplot(2, 2, 3)
         plt.title('Arena Play Win Rates (New Model vs. Old Model)')
@@ -240,6 +241,5 @@ class Coach():
         plt.locator_params(axis='x', integer=True, tight=True)
         plt.axhline(y=0.54, color='b', linestyle='-')
         plt.plot(self.winRate, 'r', label='Win Rate')
-        plt.legend(loc='best')
 
         plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")

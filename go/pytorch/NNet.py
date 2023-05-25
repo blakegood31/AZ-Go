@@ -2,6 +2,7 @@ import os
 import time
 import numpy as np
 import sys
+
 sys.path.append('../../')
 
 import pandas as pd
@@ -32,14 +33,15 @@ args = dotdict({
 
 print(args)
 
+
 class NNetWrapper(NeuralNet):
     def __init__(self, game, t='RES'):
         self.netType = t
-        if t =='RES':
-            netMkr=NetMaker(game, args)
-            self.nnet=netMkr.makeNet()
+        if t == 'RES':
+            netMkr = NetMaker(game, args)
+            self.nnet = netMkr.makeNet()
         else:
-            self.nnet=GoNNet(game, args)
+            self.nnet = GoNNet(game, args)
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
@@ -51,6 +53,7 @@ class NNetWrapper(NeuralNet):
         examples: list of examples, each example is of form (board, pi, v)
         """
         optimizer = optim.Adam(self.nnet.parameters())
+
         trainLog = {
             'EPOCH': [],
             'P_LOSS': [],
@@ -58,7 +61,7 @@ class NNetWrapper(NeuralNet):
         }
 
         for epoch in range(args.epochs):
-            print('EPOCH ::: ' + str(epoch+1))
+            print('EPOCH ::: ' + str(epoch + 1))
             trainLog['EPOCH'].append(epoch)
             self.nnet.train()
             data_time = AverageMeter()
@@ -67,10 +70,10 @@ class NNetWrapper(NeuralNet):
             v_losses = AverageMeter()
             end = time.time()
 
-            bar = Bar('Training Net', max=int(len(examples)/args.batch_size))
+            bar = Bar('Training Net', max=int(len(examples) / args.batch_size))
             batch_idx = 0
 
-            while batch_idx < int(len(examples)/args.batch_size):
+            while batch_idx < int(len(examples) / args.batch_size):
                 sample_ids = np.random.randint(len(examples), size=args.batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                 boards = torch.FloatTensor(np.array(boards).astype(np.float64))
@@ -107,16 +110,16 @@ class NNetWrapper(NeuralNet):
                 batch_idx += 1
 
                 # plot progress
-                bar.suffix  = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f}'.format(
-                            batch=batch_idx,
-                            size=int(len(examples)/args.batch_size),
-                            data=data_time.avg,
-                            bt=batch_time.avg,
-                            total=bar.elapsed_td,
-                            eta=bar.eta_td,
-                            lpi=pi_losses.avg,
-                            lv=v_losses.avg,
-                            )
+                bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f}'.format(
+                    batch=batch_idx,
+                    size=int(len(examples) / args.batch_size),
+                    data=data_time.avg,
+                    bt=batch_time.avg,
+                    total=bar.elapsed_td,
+                    eta=bar.eta_td,
+                    lpi=pi_losses.avg,
+                    lv=v_losses.avg,
+                )
                 bar.next()
 
             trainLog['P_LOSS'].append(pi_losses.avg)
@@ -126,7 +129,7 @@ class NNetWrapper(NeuralNet):
         #### plot avg pi loss and v loss for all epochs in iteration
 
         return pd.DataFrame(data=trainLog)
-        
+
     def predict(self, board):
         """
         board: np array with board
@@ -134,7 +137,7 @@ class NNetWrapper(NeuralNet):
         # preparing input
         board = torch.FloatTensor(board.astype(np.float64))
         if args.cuda: board = board.contiguous().cuda()
-        board = Variable(board,requires_grad=False)
+        board = Variable(board, requires_grad=False)
         board = board.view(1, self.board_x, self.board_y)
 
         self.nnet.eval()
@@ -143,10 +146,10 @@ class NNetWrapper(NeuralNet):
         return torch.exp(pi).data.cpu().numpy()[0], v.data.cpu().numpy()[0]
 
     def loss_pi(self, targets, outputs):
-        return -torch.sum(targets*outputs)/targets.size()[0]
+        return -torch.sum(targets * outputs) / targets.size()[0]
 
     def loss_v(self, targets, outputs):
-        return torch.sum((targets-outputs.view(-1))**2)/targets.size()[0]
+        return torch.sum((targets - outputs.view(-1)) ** 2) / targets.size()[0]
 
     def save_checkpoint(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):
         filepath = os.path.join(folder, filename)
