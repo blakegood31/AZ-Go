@@ -47,15 +47,15 @@ if __name__ == "__main__":
     except:
         pass
 
-    logPath = './logs/go/Game_Histories'
+    game_path = './logs/go/Game_Histories'
     try:
-        os.makedirs(logPath)
+        os.makedirs(game_path)
     except:
         pass
 
-    logPath = './logs/go/Training_Results'
+    training_path = './logs/go/Training_Results'
     try:
-        os.makedirs(logPath)
+        os.makedirs(training_path)
     except:
         pass
 
