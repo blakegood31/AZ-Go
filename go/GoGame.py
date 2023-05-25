@@ -135,39 +135,29 @@ class GoGame(Game):
 
 
 def display(board):
-    currState = ""
+    state = ""
     b_pieces = np.array(board.pieces)
 
     n = b_pieces.shape[0]
 
     for y in range(n):
-        # print(y, "|", end="")
-        currState = currState + str(y) + " |"
-    # print("")
-    currState += "\n"
-    # print(" -----------------------")
-    currState += " -----------------------\n"
+        state = state + str(y) + " |"
+    state += "\n"
+    state += " -----------------------\n"
     for y in range(n):
-        # print(y, "|", end="")    # print the row #
-        currState += str(y) + "|"
+        state += str(y) + "|"
         for x in range(n):
             piece = b_pieces[y][x]    # get the piece to print
             if piece == 1:
-                # print("b ", end="")
-                currState += "b "
+                state += "b "
             elif piece == -1:
-                # print("W ", end="")
-                currState += "W "
+                state += "W "
             else:
                 if x == n:
-                    # print("-", end="")
-                    currState += "-"
+                    state += "-"
                 else:
-                    # print("- ", end="")
-                    currState += "- "
-        # print("|")
-        currState += "|\n"
+                    state += "- "
+        state += "|\n"
 
-    # print(" -----------------------")
-    currState += " -----------------------"
-    return currState
+    state += " -----------------------"
+    return state
