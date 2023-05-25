@@ -7,7 +7,7 @@ class Arena():
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game, display=None):
+    def __init__(self, player1, player2, game, display=None, displayValue=0):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -23,6 +23,7 @@ class Arena():
         self.player2 = player2
         self.game = game
         self.display = display
+        self.displayValue = displayValue
 
     def playGame(self, verbose=True):
         """
@@ -38,18 +39,23 @@ class Arena():
         curPlayer = 1
         board = self.game.getInitBoard()
         it = 0
-        episode_log = open('logs/go/Game_History.txt', 'a')
         while self.game.getGameEnded(board, curPlayer) == 0:
             it += 1
             if verbose:
-                # assert(self.display)
-                print("\nTurn ", str(it), "Player ", str(curPlayer))
-                episode_log.write("Turn: " + str(it) + "   Player: " + str(curPlayer) + "\n")
-                episode_log.write(self.display(board))
                 score = self.game.getScore(board)
-                print(f"Current score: b {score[0]}, W {score[1]}")
-                episode_log.write(f"Current score: b {score[0]}, W {score[1]}\n")
-                episode_log.write("\n\n")
+                arena_log = open('logs/go/Game_History.txt', 'a')
+                arena_log.write("Turn: " + str(it) + "   Player: " + str(curPlayer) + "\n")
+                arena_log.write(self.display(board))
+                arena_log.write(f"\nCurrent score: b {score[0]}, W {score[1]}\n")
+                arena_log.write("\n\n")
+                arena_log.close()
+
+                # assert(self.display)
+                if self.displayValue == 2:
+                    print("\nTurn ", str(it), "Player ", str(curPlayer))
+                    print(self.display(board))
+                    print(f"Current score: b {score[0]}, W {score[1]}")
+
             action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer))
 
             valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
@@ -58,18 +64,24 @@ class Arena():
                 print(action)
                 # assert valids[action] >0
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
+
         if verbose:
             # assert(self.display)
             r, score = self.game.getGameEnded(board, 1, returnScore=True)
-            print("\nGame over: Turn ", str(it), "Result ", str(r))
-            episode_log.write(
-                "## Game over: Turn " + str(it) + " Result " + str(self.game.getGameEnded(board, 1)) + " ##\n")
-            episode_log.write("Final Board Configuration: \n")
-            episode_log.write(self.display(board))
-            episode_log.write(f"Final score: b (previous model) {score[0]}, W (current model) {score[1]}\n\n\n")
-            print(f"Final score: b {score[0]}, W {score[1]}\n")
 
-        episode_log.close()
+            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log.write(
+                "## Game over: Turn " + str(it) + " Result " + str(self.game.getGameEnded(board, 1)) + " ##\n")
+            arena_log.write("Final Board Configuration: \n")
+            arena_log.write(self.display(board))
+            arena_log.write(f"\nFinal score: b (previous model) {score[0]}, W (current model) {score[1]}\n\n\n")
+            arena_log.close()
+
+            if self.displayValue == 2:
+                print("\nGame over: Turn ", str(it), "Result ", str(r))
+                print(self.display(board))
+                print(f"Final score: b {score[0]}, W {score[1]}\n")
+
         return self.game.getGameEnded(board, 1)
 
     def playGames(self, num, iter, verbose=True):
@@ -94,7 +106,12 @@ class Arena():
         twoWon = 0
         draws = 0
         for _ in range(num):
-            
+            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log.write("#############################\n")
+            arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
+            arena_log.write("#############################\n\n")
+            arena_log.close()
+
             gameResult = self.playGame(verbose=verbose)
             if gameResult == 1:
                 oneWon += 1
@@ -110,18 +127,17 @@ class Arena():
                                                                                                        total=bar.elapsed_td, eta=bar.eta_td)
             bar.next()
 
-            episode_log = open('logs/go/Game_History.txt', 'a')
-            episode_log.write("#############################\n")
-            episode_log.write("Playing Game #" + str(eps) + "  (g" + str(eps) + "i" + str(iter) + ")\n")
-            episode_log.write("#############################\n\n")
-            episode_log.close()
-
         self.player1, self.player2 = self.player2, self.player1
 
         if(originalNum%2 == 1):
             num += 1
 
         for _ in range(num):
+            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log.write("#############################\n")
+            arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
+            arena_log.write("#############################\n\n")
+            arena_log.close()
            
             gameResult = self.playGame(verbose=verbose)
             if gameResult == -1:
@@ -140,13 +156,6 @@ class Arena():
                                                                                                        total=bar.elapsed_td,
                                                                                                        eta=bar.eta_td)
             bar.next()
-
-            episode_log = open('logs/go/Game_History.txt', 'a')
-            episode_log.write("#############################\n")
-            episode_log.write("Playing Game #" + str(eps) + "  (g" + str(eps) + "i" + str(iter) + ")\n")
-            episode_log.write("#############################\n\n")
-            episode_log.close()
-
 
         bar.finish()
 

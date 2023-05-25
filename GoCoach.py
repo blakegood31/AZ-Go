@@ -31,6 +31,7 @@ class Coach():
         self.p_loss_per_iteration = []
         self.v_loss_per_iteration = []
         self.winRate = []
+        self.currentEpisode = 0
 
     def executeEpisode(self):
         """
@@ -56,7 +57,7 @@ class Coach():
 
             episodeStep += 1
             if self.display == 2:
-                print("================Episode Step:{}=====CURPLAYER:{}==========".format(episodeStep,
+                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode, episodeStep,
                                                                                           "White" if self.curPlayer == -1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
@@ -71,7 +72,8 @@ class Coach():
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
             if self.display == 2:
                 print("BOARD updated:")
-                display(board)
+                # display(board)
+                print(display(board))
             r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
             if r != 0:
                 if self.display == 2:
@@ -79,8 +81,9 @@ class Coach():
                                                                                         score[0], score[1]))
 
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
-            else:
+            elif r == 0 and self.display == 2:
                 print(f"Current score: b {score[0]}, W {score[1]}")
+
 
     def learn(self):
         """
@@ -91,18 +94,17 @@ class Coach():
         only if it wins >= updateThreshold fraction of games.
         """
 
-        iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESTULT': []}
-
+        iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
 
         for i in range(1, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
             # bookkeeping
             print('###########################ITER:{}###########################'.format(str(i)))
-            episode_log = open('logs/go/Game_History.txt', 'a')
-            episode_log.write("##########################################\n")
-            episode_log.write("ITERATION: " + str(i) + "\n")
-            episode_log.write("##########################################\n\n")
-            episode_log.close()
+            arena_log = open('logs/go/Game_History.txt', 'a')
+            arena_log.write("##########################################\n")
+            arena_log.write("ITERATION: " + str(i) + "\n")
+            arena_log.write("##########################################\n\n")
+            arena_log.close()
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
@@ -114,6 +116,7 @@ class Coach():
                 for eps in range(self.args.numEps):
                     # print("{}th Episode:".format(eps+1))
                     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
+                    self.currentEpisode = eps + 1
                     iterationTrainExamples += self.executeEpisode()
 
                     # bookkeeping + plot progress
@@ -160,40 +163,26 @@ class Coach():
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, display=display)
+                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, display=display,
+                          displayValue=self.display.value)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
-            self.winRate.append(nwins/self.args.arenaCompare)
+            self.winRate.append(nwins / self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
                 print('REJECTING NEW MODEL')
-                iterHistory['PITT_RESTULT'].append('R')
+                iterHistory['PITT_RESULT'].append('R')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             else:
                 print('ACCEPTING NEW MODEL')
-                iterHistory['PITT_RESTULT'].append('A')
+                iterHistory['PITT_RESULT'].append('A')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
-
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
-        self.saveNNLossPlot()
+        self.saveTrainingPlots()
 
-        pd.DataFrame(data=iterHistory).to_csv(self.logPath+'ITER_LOG.csv')
-
-        #Plot win rate of models over training
-        #iterations = range(1, self.args.numIters+1)
-        #plt.subplot(1, 3, 3)
-        #plt.plot(iterations, winRate, 'r', label = 'Win Rate')
-        #plt.axhline(y = 0.54, color = 'b', linestyle = '-')
-        #plt.title('Arena Play Win Rates (New Model vs. Old Model)')
-        #plt.xlabel('Iteration')
-        #plt.ylabel('Win Rate (%)')
-       # plt.legend()
-        #plt.locator_params(axis = 'x', integer=True, tight=True)
-        #plt.show(block=True)
-        #plt.savefig('logs/go/Win_Rate_Plot.png')
-
+        pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'
@@ -223,9 +212,10 @@ class Coach():
             # examples based on the model were already collected (loaded)
             self.skipFirstSelfPlay = True
 
-    # plot and save v/p loss after training
-    def saveNNLossPlot(self):
-        plt.rcParams["figure.figsize"] = (20, 15)
+    # plot/save v/p loss after training
+    # plot/save Arena Play Win Rates after arena
+    def saveTrainingPlots(self):
+        plt.rcParams["figure.figsize"] = (18, 12)
 
         plt.subplot(2, 2, 1)
         plt.title("V Loss During Training")
@@ -243,15 +233,14 @@ class Coach():
         plt.plot(self.p_loss_per_iteration, label="P Loss")
         plt.legend(loc='best')
 
-        iterations = range(1, self.args.numIters+1)
+        iterations = range(1, self.args.numIters + 1)
         plt.subplot(2, 2, 3)
-        plt.plot(iterations, self.winRate, 'r', label = 'Win Rate')
-        plt.axhline(y = 0.54, color = 'b', linestyle = '-')
         plt.title('Arena Play Win Rates (New Model vs. Old Model)')
         plt.xlabel('Iteration')
         plt.ylabel('Win Rate (%)')
-        plt.legend()
-        plt.locator_params(axis = 'x', integer=True, tight=True)
-        plt.show(block=True)
+        plt.locator_params(axis='x', integer=True, tight=True)
+        plt.axhline(y=0.54, color='b', linestyle='-')
+        plt.plot(iterations, self.winRate, 'r', label='Win Rate')
+        plt.legend(loc='best')
 
-        plt.savefig("logs/go/CNN_Training_Loss.png")
+        plt.savefig("logs/go/Training_Result.png")

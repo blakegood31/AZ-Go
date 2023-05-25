@@ -141,33 +141,33 @@ def display(board):
     n = b_pieces.shape[0]
 
     for y in range(n):
-        print(y, "|", end="")
+        # print(y, "|", end="")
         currState = currState + str(y) + " |"
-    print("")
+    # print("")
     currState += "\n"
-    print(" -----------------------")
+    # print(" -----------------------")
     currState += " -----------------------\n"
     for y in range(n):
-        print(y, "|", end="")    # print the row #
+        # print(y, "|", end="")    # print the row #
         currState += str(y) + "|"
         for x in range(n):
             piece = b_pieces[y][x]    # get the piece to print
             if piece == 1:
-                print("b ", end="")
+                # print("b ", end="")
                 currState += "b "
             elif piece == -1:
-                print("W ", end="")
+                # print("W ", end="")
                 currState += "W "
             else:
                 if x == n:
-                    print("-", end="")
+                    # print("-", end="")
                     currState += "-"
                 else:
-                    print("- ", end="")
+                    # print("- ", end="")
                     currState += "- "
-        print("|")
+        # print("|")
         currState += "|\n"
 
-    print(" -----------------------")
-    currState += " -----------------------\n"
+    # print(" -----------------------")
+    currState += " -----------------------"
     return currState
