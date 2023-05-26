@@ -21,19 +21,19 @@ tag = 'MCTS_SimModified'
 
 
 args = dotdict({
-    'numIters': 5,
-    'numEps': 2,
+    'numIters': 1000,
+    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
-    'updateThreshold': 0.0,
-    'maxlenOfQueue': 200000,
-    'numMCTSSims': 200,
-    'arenaCompare': 2,
+    'updateThreshold': 0.54,    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
+    'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
+    'numMCTSSims': 50,          # Number of games moves for MCTS to simulate.
+    'arenaCompare': 50,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
-    'load_model': True,
+    'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.NO_DISPLAY,
+    'display': Display.DISPLAY_BOARD,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
 })
 
@@ -93,3 +93,9 @@ if __name__ == "__main__":
         c.loadTrainExamples()
 
     c.learn()
+
+    # add time completed training here...
+    arena_log = open(f'logs/go/Game_Histories/Game_History_{args.datetime}.txt', 'a')
+    time_completed = datetime.now().strftime("%d-%m-%Y %H:%M")
+    arena_log.write(f"Training completed at: {time_completed}")
+    arena_log.close()

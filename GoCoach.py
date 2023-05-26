@@ -239,7 +239,7 @@ class Coach():
         plt.xlabel('Iteration')
         plt.ylabel('Win Rate (%)')
         plt.locator_params(axis='x', integer=True, tight=True)
-        plt.axhline(y=0.54, color='b', linestyle='-')
+        plt.axhline(y=self.args.updateThreshold, color='b', linestyle='-')
         plt.plot(self.winRate, 'r', label='Win Rate')
 
         plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")
