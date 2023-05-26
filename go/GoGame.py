@@ -68,7 +68,12 @@ class GoGame(Game):
         (score_black, score_white) = self.getScore(board)
         by_score = 0.5 * (board.n * board.n + board.komi)
 
-        if len(board.history) > 1:
+        if len(board.history) > 500:
+            # stack overflow occurs when MCTS infinitely runs
+            # to avoid this, end game with tie over a set number of moves
+            print("#### MCTS Recursive Base Case Triggered ####")
+            winner = 1e-4
+        elif len(board.history) > 1:
             if (board.history[-1] is None and board.history[-2] is None\
                     and player == -1):
                 if score_black > score_white:

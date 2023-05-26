@@ -1,4 +1,6 @@
 import math
+import sys
+
 import numpy as np
 import time
 try:
@@ -14,6 +16,15 @@ class MCTS():
     """
     This class handles the MCTS tree.
     """
+
+    def get_stack_size(self):
+        size = 2  # current frame and caller's frame always exist
+        while True:
+            try:
+                sys._getframe(size)
+                size += 1
+            except ValueError:
+                return size - 1  # subtract current frame
 
     def __init__(self, game, nnet, args):
         self.game = game
@@ -139,9 +150,8 @@ class MCTS():
         # print("doing mcts on board:")
         # display(canonicalBoard)
 
-
-        gameEnd=self.game.getGameEnded(canonicalBoard, 1)
-        if gameEnd!=0:
+        gameEnd = self.game.getGameEnded(canonicalBoard, 1)
+        if gameEnd != 0:
             return -gameEnd
         s = self.game.stringRepresentation(canonicalBoard)
 
@@ -184,7 +194,7 @@ class MCTS():
                     best_act = a
 
         a = best_act
-        assert(valids[a]!=0)
+        assert(valids[a] != 0)
         # print("in MCTS.search, need next search, shifting player from 1")
 
         try:
@@ -202,8 +212,8 @@ class MCTS():
 
             # pick the action with the highest upper confidence bound
             for a in range(self.game.getActionSize()):
-                if valids[a]!=0:
-                    if (s,a) in self.Qsa and self.Qsa[(s,a)]!=None:
+                if valids[a] != 0:
+                    if (s, a) in self.Qsa and self.Qsa[(s,a)] != None:
                         u = self.Qsa[(s,a)] + self.args.cpuct*self.Ps[s][a]*math.sqrt(self.Ns[s])/(1+self.Nsa[(s,a)])
                     else:
                         u = self.args.cpuct*self.Ps[s][a]*math.sqrt(self.Ns[s])     # Q = 0 ?
@@ -213,7 +223,7 @@ class MCTS():
                         best_act = a
 
             a = best_act
-            print("recalculate the valids vector:{} ".format(valids))
+            # print("recalculate the valids vector:{} ".format(valids))
             try:
                 next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
             except:
@@ -221,17 +231,7 @@ class MCTS():
 
         next_s = self.game.getCanonicalForm(next_s, next_player)
 
-        # investigate stack overflow error
-        # with infinite recursion (leaf node never found)
-        try:
-            v = self.search(next_s)
-        except:
-            print("Stack overflow error has occurred. Determine game state and update game rules.\nBoard state:")
-            print(f"next_s: {next_s}\n")
-            print(f"a: {a}\n")
-            print(f"gameEnd: {gameEnd}\n")
-            print(f"valids: {valids}")
-            print(f"best_act: {best_act}")
+        v = self.search(next_s)
 
         if (s,a) in self.Qsa:
             assert(valids[a]!=0)

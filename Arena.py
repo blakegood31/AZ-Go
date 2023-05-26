@@ -78,11 +78,13 @@ class Arena():
             arena_log.write(f"\nFinal score: b (previous model) {score[0]}, W (current model) {score[1]}\n\n\n")
             arena_log.close()
 
+            # print at arena game end
+            # print(f"Num of Turns: {len(board.history)}\n")
+
             if self.displayValue == 2:
                 print("\nGame over: Turn ", str(it), "Result ", str(r))
                 print(self.display(board))
                 print(f"Final score: b {score[0]}, W {score[1]}\n")
-
         return self.game.getGameEnded(board, 1)
 
     def playGames(self, num, iter, verbose=True):
