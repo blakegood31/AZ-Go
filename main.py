@@ -5,6 +5,7 @@ from utils import *
 import os, sys
 from enum import IntEnum
 from datetime import datetime
+import time
 
 sys.setrecursionlimit(5000)
 
@@ -15,19 +16,19 @@ class Display(IntEnum):
     DISPLAY_BOARD = 2
 
 
-BoardSize = 7
+BoardSize = 5
 NetType = 'CNN'  # or 'RES'
 tag = 'MCTS_SimModified'
 
 
 args = dotdict({
-    'numIters': 1000,
-    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
+    'numIters': 2,
+    'numEps': 2,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
     'numMCTSSims': 200,         # Number of games moves for MCTS to simulate.
-    'arenaCompare': 50,         # Number of games to play during arena play to determine if new net will be accepted.
+    'arenaCompare': 3,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
@@ -35,6 +36,7 @@ args = dotdict({
     'numItersForTrainExamplesHistory': 25,
     'display': Display.NO_DISPLAY,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
+    'board_size': BoardSize,
 })
 
 if args.load_model:
@@ -44,6 +46,8 @@ if args.load_model:
     args['load_folder_file'] = [f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/', latest_checkpoint]
 
 if __name__ == "__main__":
+
+    start_time = time.time()
 
     g = Game(BoardSize)
     nnet = nn(g, t=NetType)
@@ -93,6 +97,11 @@ if __name__ == "__main__":
         c.loadTrainExamples()
 
     c.learn()
+
+    end_time = time.time()
+
+    elapsed_time = end_time - start_time
+    print("Elapsed time: {:.2f} seconds".format(elapsed_time))
 
     arena_log = open(f'logs/go/Game_Histories/Game_History_{args.datetime}.txt', 'a')
     time_completed = datetime.now().strftime("%d-%m-%Y %H:%M")

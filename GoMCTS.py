@@ -10,7 +10,8 @@ except:
         from alphabrain.go.GoGame import display
     except:
         from go.GoGame import display
-
+from pettingzoo.classic import go_v5 as go
+import time
     
 class MCTS():
     """
@@ -38,7 +39,7 @@ class MCTS():
         self.Es = {}        # stores game.getGameEnded ended for board s
         self.Vs = {}        # stores game.getValidMoves for board s
 
-    def getActionProb(self, canonicalBoard, temp=1):
+    def getActionProb(self, canonicalBoard, env, actionHistory, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -51,14 +52,26 @@ class MCTS():
         # display(canonicalBoard)
         
         #print('current sim numbers:{}'.format(max(self.args.numMCTSSims,self.smartSimNum)))
+        start_time = time.time()
+
+        self.newEnv = go.env(board_size = self.args['board_size'])
+
         for i in range(max(self.args.numMCTSSims,self.smartSimNum)):
+            #print("Calling search with canonical board: ", canonicalBoard.pieces)
+            if len(actionHistory) == 0:
+                self.newEnv.reset()
+            else:
+                self.newEnv.reset()
+                for i in range(len(actionHistory)):
+                    self.newEnv.step(actionHistory[i])
+            #print("Search being called starting with agent: ", self.newEnv.agent_selection)
+            self.search(canonicalBoard, numCalls = 0)
 
-            self.search(canonicalBoard)
-
+        obs, reward, termination, truncation, info = self.newEnv.last()
         s = self.game.stringRepresentation(canonicalBoard)
 
         counts = np.array([self.Nsa[(s,a)] if (s,a) in self.Nsa else 0 for a in range(self.game.getActionSize())])
-        valids=self.game.getValidMoves(canonicalBoard,player=1)
+        valids=obs['action_mask']
         self.smartSimNum=10*(np.count_nonzero(valids))
 
         if np.sum(counts)==0:
@@ -99,14 +112,6 @@ class MCTS():
                     if not flag_Nsa and flag_Qsa:
                         print("has nsa, no qsa")
 
-
-
-
-
-
-
-
-
                 print(counts)
 
             probs = [0 for i in range(len(counts))]
@@ -125,10 +130,13 @@ class MCTS():
             if probs[_]>0:
                 assert(valids[_]>0)
 
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
         return probs*valids
 
 
-    def search(self, canonicalBoard):
+    def search(self, canonicalBoard, numCalls):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -149,18 +157,26 @@ class MCTS():
         """
         # print("doing mcts on board:")
         # display(canonicalBoard)
+        if numCalls > 250:
+            return -1e-4
 
-        gameEnd = self.game.getGameEnded(canonicalBoard, 1)
-        if gameEnd != 0:
-            return -gameEnd
+        obs, reward, termination, truncation, info = self.newEnv.last()
+    
+        if reward != 0: 
+            return -reward
+        
+        #print("Getting initial string representation on board: ", canonicalBoard.pieces)
         s = self.game.stringRepresentation(canonicalBoard)
-
+        #print("S in search: ", s)
         if s not in self.Ps:
             # print("leaf node")
-            self.Ps[s], v = self.nnet.predict(canonicalBoard.pieces)
+            #print("Board passed to NN: ", canonicalBoard.pieces)
+            self.Ps[s], v = self.nnet.predict(canonicalBoard)
 
-            valids = self.game.getValidMoves(canonicalBoard, 1)
+            valids = np.array(obs['action_mask'])
+            #print("Valid Moves Before Mask: ", valids)
             self.Ps[s] = self.Ps[s]*valids      # masking invalid moves
+            #print("Valid Moves After Mask: ", self.Ps[s])
             sum_Ps_s = np.sum(self.Ps[s])
             if sum_Ps_s > 0:
                 self.Ps[s] /= sum_Ps_s    # renormalize
@@ -175,18 +191,21 @@ class MCTS():
 
             self.Vs[s] = valids
             self.Ns[s] = 0
+            #print("Returning from first if with v=", -v)
             return -v
 
         valids = self.Vs[s]
         cur_best = -float('inf')
         best_act = -1
-
+        #print("Valids before choosing action: ", valids)
         # pick the action with the highest upper confidence bound
         for a in range(self.game.getActionSize()):
             if valids[a]!=0:
                 if (s,a) in self.Qsa and self.Qsa[(s,a)]!=None:
+                    #print("Values for s,a: Qsa: ", self.Qsa[(s,a)], "  Psa: ", self.Ps[s][a], "  Ns: ", self.Ns[s], "  Nsa: ", self.Nsa[(s,a)])
                     u = self.Qsa[(s,a)] + self.args.cpuct*self.Ps[s][a]*math.sqrt(self.Ns[s])/(1+self.Nsa[(s,a)])
                 else:
+                    #print("Values for s,a: Psa: ", self.Ps[s][a], "  Ns: ", self.Ns[s])
                     u = self.args.cpuct*self.Ps[s][a]*math.sqrt(self.Ns[s])     # Q = 0 ?
 
                 if u > cur_best:
@@ -194,18 +213,30 @@ class MCTS():
                     best_act = a
 
         a = best_act
-        assert(valids[a] != 0)
+        #print("Chose action: ", a)
+        try: 
+            assert(valids[a] != 0)
+        except AssertionError:
+            print("Bad Move (Assertion Error)")
+            return -1e-4
         # print("in MCTS.search, need next search, shifting player from 1")
 
         try:
-            next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
-
+            #print("Chose Action: ", a)
+            self.newEnv.step(a)
+            obs, reward, termination, truncation, info = self.newEnv.last()
+        
+            next_s = self.game.getBoard(obs, self.newEnv.agent_selection)
+            #print("State after action: ", next_s.pieces)
             # print("in MCTS.search, need next search, next player is {}".format(next_player))
         except:
+            print("First move failed")
             # print("###############在search内部节点出现错误：###########")
             # display(canonicalBoard)
             # print("action:{},valids:{},Vs:{}".format(a,valids,self.Vs[s]))
-            valids=self.game.getValidMoves(canonicalBoard,1)
+            #print("In Except 237 (211)")
+            valids=np.array(obs['action_mask'])
+            #print("Valids in except: ", valids)
             self.Vs[s]=valids
             cur_best = -float('inf')
             best_act = -1
@@ -225,14 +256,21 @@ class MCTS():
             a = best_act
             # print("recalculate the valids vector:{} ".format(valids))
             try:
-                next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
+                self.newEnv.step(a)
+                obs, reward, termination, truncation, info = self.newEnv.last()
+                next_s = self.game.getBoard(obs, self.newEnv.agent_selection)
+                #print("State after action (2): ", next_s)
             except:
-                return
+                print("Second move failed, returning 0")
+                #print("In last (bad) except")
+                return -1e-4
 
-        next_s = self.game.getCanonicalForm(next_s, next_player)
-
-        v = self.search(next_s)
-
+        #print("Next_S before recursive call: \n", next_s.pieces)
+        #print("Calling search at 289 (244)")
+        #next_s = self.game.getCanonicalForm(next_s, next_player)
+        
+        v = self.search(next_s, numCalls+1)
+        #print("V: ", v)
         if (s,a) in self.Qsa:
             assert(valids[a]!=0)
             self.Qsa[(s,a)] = (self.Nsa[(s,a)]*self.Qsa[(s,a)] + v)/(self.Nsa[(s,a)]+1)

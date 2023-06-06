@@ -9,7 +9,7 @@ from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from pettingzoo.classic import go_v5 as go
 
 class Coach():
     """
@@ -52,7 +52,78 @@ class Coach():
         trainExamples = []
         board = self.game.getInitBoard()
         self.curPlayer = 1
-        episodeStep = 0
+        episode_step = 0
+        whitenum = 0
+        blacknum = 0
+        #debug
+        actionHistory = []
+        canonicalForm = np.zeros((self.args['board_size'], self.args['board_size']))
+
+        for agent in self.env.agent_iter():
+            episode_step += 1
+
+            #Maybe delete??
+            if agent == 'white_0':
+                whitenum = 0
+                blacknum = 1
+            else:
+                whitenum = 1
+                blacknum = 0
+            
+            if self.display == 2:
+                    print(
+                        f"================Episode {self.currentEpisode} Step:{episode_step}=====CURPLAYER:{agent}==========")
+            temp = int(episode_step < self.args.tempThreshold)
+            # get information about previous state
+            obs, reward, termination, truncation, info = self.env.last()
+
+            if reward != 0:
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != self.env.agent_selection))) for x in trainExamples]
+
+            canonicalForm = self.game.getBoard(obs, self.env.agent_selection)
+            # fill out canonical form from observation space
+            """
+            for i in range(self.game.getBoardSize()[0]):
+                for j in range(self.game.getBoardSize()[0]):
+                    if obs['observation'][i, j, 0] == 1:
+                        canonicalForm[i, j] = 1
+                    elif obs['observation'][i, j, 1] == 1:
+                        canonicalForm[i, j] = -1
+                    else:
+                        canonicalForm[i, j] = 0  # Empty intersection
+            """
+            if termination or truncation:
+                # print(reward)
+                print("Terminated Early Coach")
+                if agent == 'black_0' and reward == 1:
+                    print("Black Won!")
+                elif agent == 'white_0' and reward == 1:
+                    print("White Won!")
+                elif agent == 'black_0' and reward == -1:
+                    print("White Won!")
+                elif agent == 'white_0' and reward == -1:
+                    print("Black Won!")
+                else:
+                    print("Ended Early")
+
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != env.agent_selection))) for x in trainExamples]        
+        
+            temp = int(episode_step < self.args.tempThreshold)
+            #print("Calling get action prob")
+            pi = self.mcts.getActionProb(canonicalForm, self.env, actionHistory, temp=temp)
+
+            sym = self.game.getSymmetries(canonicalForm, pi)
+            for b, p in sym:
+                trainExamples.append([b, self.env.agent_selection, p, None])
+
+            action = np.random.choice(len(pi), p=pi)
+            actionHistory.append(action)
+
+            ##Add print board here
+            #print("Stepping in Coach")
+            self.env.step(action)
+
+    """
         while True:
 
             episodeStep += 1
@@ -83,7 +154,7 @@ class Coach():
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
             elif r == 0 and self.display == 2:
                 print(f"Current score: b {score[0]}, W {score[1]}")
-
+    """
 
     def learn(self):
         """
@@ -115,6 +186,9 @@ class Coach():
 
                 for eps in range(self.args.numEps):
                     # print("{}th Episode:".format(eps+1))
+                    env = go.env(board_size=self.args['board_size'])
+                    self.env = env
+                    self.env.reset()
                     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
                     self.currentEpisode = eps + 1
                     iterationTrainExamples += self.executeEpisode()
@@ -122,7 +196,7 @@ class Coach():
                     # bookkeeping + plot progress
                     eps_time.update(time.time() - end)
                     end = time.time()
-
+                    self.env.close()
                     if self.display == 1:
                         bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
                             eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
@@ -162,8 +236,8 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime, display=display,
+            arena = Arena(lambda x, y, z: np.argmax(pmcts.getActionProb(x, y, z, temp=0)),
+                          lambda x, y, z: np.argmax(nmcts.getActionProb(x, y, z, temp=0)), self.game, self.args.datetime, display=display,
                           displayValue=self.display.value)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
             self.winRate.append(nwins / self.args.arenaCompare)
@@ -218,7 +292,7 @@ class Coach():
         # close previous graph
         plt.close()
 
-        plt.rcParams["figure.figsize"] = (18, 12)
+        plt.rcParams["figure.figsize"] = (3, 3)
 
         plt.subplot(2, 2, 1)
         plt.title("V Loss During Training")
@@ -242,4 +316,7 @@ class Coach():
         plt.axhline(y=self.args.updateThreshold, color='b', linestyle='-')
         plt.plot(self.winRate, 'r', label='Win Rate')
 
-        plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")
+        plt.subplots_adjust(hspace=0.5, wspace=0.3)
+
+        dpi = 100
+        plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png", dpi=dpi)

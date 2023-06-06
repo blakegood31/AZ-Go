@@ -118,12 +118,12 @@ class GoGame(Game):
         return canonicalBoard
 
     # modified
-    def getSymmetries(self, board, pi):
+    def getSymmetries(self, canonicalForm, pi):
         # mirror, rotational
         assert(len(pi) == self.n**2 + 1)  # 1 for pass
         pi_board = np.reshape(pi[:-1], (self.n, self.n))
         l = []
-        b_pieces = board.pieces
+        b_pieces = canonicalForm
         for i in range(1, 5):
             for j in [True, False]:
                 newB = np.rot90(b_pieces, i)
@@ -134,9 +134,27 @@ class GoGame(Game):
                 l += [(newB, list(newPi.ravel()) + [pi[-1]])]
         return l
 
-    def stringRepresentation(self, board):
+    def stringRepresentation(self, canonicalForm):
         # 8x8 numpy array (canonical board)
-        return np.array(board.pieces).tostring()
+        return np.array(canonicalForm).tostring()
+
+    def getBoard(self, obs, agent):
+        if agent == 'black_0':
+            zero = 0
+        else:
+            zero = np.copysign(0, -1
+            )
+        canonicalForm = np.zeros((self.getBoardSize()[0], self.getBoardSize()[0]))
+        for i in range(self.getBoardSize()[0]):
+            for j in range(self.getBoardSize()[0]):
+                if obs['observation'][i, j, 0] == 1:
+                    canonicalForm[i, j] = 1
+                elif obs['observation'][i, j, 1] == 1:
+                    canonicalForm[i, j] = -1
+                else:
+                    canonicalForm[i, j] = zero  # Empty intersection
+        return canonicalForm
+
 
 
 def display(board):

@@ -1,6 +1,7 @@
 import numpy as np
 from pytorch_classification.utils import Bar, AverageMeter
 import time
+from pettingzoo.classic import go_v5 as go
 
 class Arena():
     """
@@ -19,14 +20,14 @@ class Arena():
         see othello/OthelloPlayers.py for an example. See pit.py for pitting
         human players/other baselines with each other.
         """
-        self.player1 = player1
-        self.player2 = player2
+        self.player1 = player1 #Previous Model, black_0
+        self.player2 = player2 #New Model, white_0
         self.game = game
         self.display = display
         self.displayValue = displayValue
         self.datetime = datetime
 
-    def playGame(self, verbose=True):
+    def playGame(self, switchStart, verbose=True):
         """
         Executes one episode of a game.
 
@@ -38,8 +39,68 @@ class Arena():
         """
         players = [self.player2, None, self.player1]
         curPlayer = 1
-        board = self.game.getInitBoard()
+        #board = self.game.getInitBoard()
         it = 0
+        actionHistory = []
+        arenaEnv = go.env(board_size = 5)
+        arenaEnv.reset()
+
+        for agent in arenaEnv.agent_iter():
+            
+            it += 1
+
+            obs, reward, termination, truncation, info = arenaEnv.last()
+
+            canonicalForm = self.game.getBoard(obs, arenaEnv.agent_selection)
+
+            #Improve this later
+            if termination or truncation:
+                print("Ended early")
+                arenaEnv.close()
+                return 1e-4
+                break
+
+            if switchStart:
+                if agent == 'black_0':
+                    action = self.player2(canonicalForm, arenaEnv, actionHistory)
+                else:
+                    action = self.player1(canonicalForm, arenaEnv, actionHistory)
+            else:
+                if agent == 'black_0':
+                    action = self.player1(canonicalForm, arenaEnv, actionHistory)
+                else:
+                    action = self.player2(canonicalForm, arenaEnv, actionHistory)
+
+            actionHistory.append(action)
+            valids = np.array(obs['action_mask'])
+            if valids[action] == 0:
+                print(action)
+            
+            arenaEnv.step(action)
+            obs, r, termination, truncation, info = arenaEnv.last()
+    
+            if r != 0:
+                print("Proper Arena Return")
+                if agent =='black_0' and reward == 1:
+                    arenaEnv.close()
+                    return 1
+                elif agent =='white_0' and reward == 1:
+                    arenaEnv.close()
+                    return -1
+                elif agent =='black_0' and reward == -1:
+                    arenaEnv.close()
+                    return -1
+                elif agent =='white_0' and reward == -1:
+                    arenaEnv.close()
+                    return 1
+                else: 
+                    arenaEnv.close()
+                    return r
+
+        
+        print("Closing environment")
+        arenaEnv.close()
+        """
         while self.game.getGameEnded(board, curPlayer) == 0:
             it += 1
             if verbose:
@@ -86,7 +147,7 @@ class Arena():
                 print(self.display(board))
                 print(f"Final score: b {score[0]}, W {score[1]}\n")
         return self.game.getGameEnded(board, 1)
-
+        """
     def playGames(self, num, iter, verbose=True):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
@@ -114,8 +175,8 @@ class Arena():
             arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
             arena_log.write("#############################\n\n")
             arena_log.close()
-
-            gameResult = self.playGame(verbose=verbose)
+            print("Calling Play game")
+            gameResult = self.playGame(switchStart = False, verbose=verbose)
             if gameResult == 1:
                 oneWon += 1
             elif gameResult == -1:
@@ -130,7 +191,7 @@ class Arena():
                                                                                                        total=bar.elapsed_td, eta=bar.eta_td)
             bar.next()
 
-        self.player1, self.player2 = self.player2, self.player1
+        #self.player1, self.player2 = self.player2, self.player1
 
         if(originalNum%2 == 1):
             num += 1
@@ -141,8 +202,8 @@ class Arena():
             arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
             arena_log.write("#############################\n\n")
             arena_log.close()
-           
-            gameResult = self.playGame(verbose=verbose)
+            print("Calling Play game")
+            gameResult = self.playGame(switchStart = True, verbose=verbose)
             if gameResult == -1:
                 oneWon += 1
             elif gameResult == 1:
