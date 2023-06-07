@@ -46,36 +46,75 @@ class Arena():
         arenaEnv.reset()
 
         for agent in arenaEnv.agent_iter():
-            
+            print("Arena play step: ", it)
             it += 1
+            
 
             obs, reward, termination, truncation, info = arenaEnv.last()
 
-            canonicalForm = self.game.getBoard(obs, arenaEnv.agent_selection)
+            #canonicalForm = self.game.getBoard(obs, arenaEnv.agent_selection)
+            canonicalForm = np.zeros((5, 5)) #remove hardcode
+            for i in range(self.game.getBoardSize()[0]):
+                for j in range(self.game.getBoardSize()[0]):
+                    if obs['observation'][i, j, 0] == 1:
+                        canonicalForm[i, j] = 1
+                    elif obs['observation'][i, j, 1] == 1:
+                        canonicalForm[i, j] = -1
+                    else:
+                        canonicalForm[i, j] = 0  # Empty intersection
+            
+            
+            if termination or truncation or it>40: #Ends game early if more than a certain number of moves were made
+                print("Ended early")
+                arenaEnv.close()
+                return 0
+                break
+
+            if verbose:
+                #score = self.game.getScore(board)
+                arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
+                arena_log.write("Turn: " + str(it) + "   Player: " + str(arenaEnv.agent_selection) + "\n")
+                arena_log.write(self.display(canonicalForm, arenaEnv.agent_selection))
+                #arena_log.write(f'\nChose move: {action}')
+                #arena_log.write(f'\nFrom Valids: {moves}')
+                #arena_log.write(f"\nCurrent score: b {score[0]}, W {score[1]}\n")
+                arena_log.write("\n\n")
+                arena_log.close()
+
+                # assert(self.display)
+                if self.displayValue == 2:
+                    print("\nTurn ", str(it), "Player ", str(curPlayer))
+                    print(self.display(canonicalForm, arenaEnv.agent_selection))
+                    #print(f"Current score: b {score[0]}, W {score[1]}")
 
             #Improve this later
             if termination or truncation:
                 print("Ended early")
                 arenaEnv.close()
-                return 1e-4
+                return 0
                 break
 
             if switchStart:
                 if agent == 'black_0':
-                    action = self.player2(canonicalForm, arenaEnv, actionHistory)
+                    moves = self.player2(canonicalForm, arenaEnv, actionHistory)
+                    action = np.argmax(moves)
                 else:
-                    action = self.player1(canonicalForm, arenaEnv, actionHistory)
+                    moves = self.player1(canonicalForm, arenaEnv, actionHistory)
+                    action = np.argmax(moves) 
             else:
                 if agent == 'black_0':
-                    action = self.player1(canonicalForm, arenaEnv, actionHistory)
+                    moves = self.player1(canonicalForm, arenaEnv, actionHistory)
+                    action = np.argmax(moves)
                 else:
-                    action = self.player2(canonicalForm, arenaEnv, actionHistory)
+                    moves = self.player2(canonicalForm, arenaEnv, actionHistory)
+                    action = np.argmax(moves)
 
             actionHistory.append(action)
             valids = np.array(obs['action_mask'])
             if valids[action] == 0:
                 print(action)
-            
+            print("Performing Action: ", action)
+            print("On board: ", canonicalForm)
             arenaEnv.step(action)
             obs, r, termination, truncation, info = arenaEnv.last()
     

@@ -61,7 +61,7 @@ class Coach():
 
         for agent in self.env.agent_iter():
             episode_step += 1
-
+            print("Episode step: ", episode_step)
             #Maybe delete??
             if agent == 'white_0':
                 whitenum = 0
@@ -80,9 +80,9 @@ class Coach():
             if reward != 0:
                 return [(x[0], x[2], reward * ((-1) ** (x[1] != self.env.agent_selection))) for x in trainExamples]
 
-            canonicalForm = self.game.getBoard(obs, self.env.agent_selection)
+            #canonicalForm = self.game.getBoard(obs, self.env.agent_selection)
             # fill out canonical form from observation space
-            """
+            
             for i in range(self.game.getBoardSize()[0]):
                 for j in range(self.game.getBoardSize()[0]):
                     if obs['observation'][i, j, 0] == 1:
@@ -91,7 +91,7 @@ class Coach():
                         canonicalForm[i, j] = -1
                     else:
                         canonicalForm[i, j] = 0  # Empty intersection
-            """
+            
             if termination or truncation:
                 # print(reward)
                 print("Terminated Early Coach")
@@ -108,7 +108,7 @@ class Coach():
 
                 return [(x[0], x[2], reward * ((-1) ** (x[1] != env.agent_selection))) for x in trainExamples]        
         
-            temp = int(episode_step < self.args.tempThreshold)
+            #temp = int(episode_step < self.args.tempThreshold)
             #print("Calling get action prob")
             pi = self.mcts.getActionProb(canonicalForm, self.env, actionHistory, temp=temp)
 
@@ -118,7 +118,7 @@ class Coach():
 
             action = np.random.choice(len(pi), p=pi)
             actionHistory.append(action)
-
+            print("Chose action: ", action)
             ##Add print board here
             #print("Stepping in Coach")
             self.env.step(action)
@@ -236,8 +236,8 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x, y, z: np.argmax(pmcts.getActionProb(x, y, z, temp=0)),
-                          lambda x, y, z: np.argmax(nmcts.getActionProb(x, y, z, temp=0)), self.game, self.args.datetime, display=display,
+            arena = Arena(lambda x, y, z: (pmcts.getActionProb(x, y, z, temp=0)),
+                          lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=0)), self.game, self.args.datetime, display=display,
                           displayValue=self.display.value)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
             self.winRate.append(nwins / self.args.arenaCompare)
@@ -292,7 +292,7 @@ class Coach():
         # close previous graph
         plt.close()
 
-        plt.rcParams["figure.figsize"] = (3, 3)
+        plt.rcParams["figure.figsize"] = (17, 10)
 
         plt.subplot(2, 2, 1)
         plt.title("V Loss During Training")

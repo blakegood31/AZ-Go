@@ -67,22 +67,33 @@ class MCTS():
             #print("Search being called starting with agent: ", self.newEnv.agent_selection)
             self.search(canonicalBoard, numCalls = 0)
 
-        obs, reward, termination, truncation, info = self.newEnv.last()
+        obs, reward, termination, truncation, info = env.last()
         s = self.game.stringRepresentation(canonicalBoard)
 
         counts = np.array([self.Nsa[(s,a)] if (s,a) in self.Nsa else 0 for a in range(self.game.getActionSize())])
-        valids=obs['action_mask']
+        valids=np.array(obs['action_mask'])
+        """valids[-1] = 0
+        if all(element == 0 for element in valids):
+            print("allowing skip")
+            valids[-1] = 1"""
         self.smartSimNum=10*(np.count_nonzero(valids))
-
+        #print("Counts before anything: ", counts)
+        #print("Valids in getActionProb: ", valids)
         if np.sum(counts)==0:
+            #print("Setting counts to valids")
             counts=valids
         else:
+            #print("Multiplying counts by valids")
             counts*=valids
-
+        #print("Counts after trans: ", counts)
 
         if temp==0:
-            bestA = np.argmax(counts)
-
+            if np.sum(counts) == 0:
+                bestA = obs['observation'].shape[0]*obs['observation'].shape[0]
+            else: 
+                bestA = np.argmax(counts)
+            #print("temp==0, with counts: ", counts)
+            #print("bestA: ", bestA)
             try:
                 assert(valids[bestA]!=0)
             except:
@@ -132,7 +143,8 @@ class MCTS():
 
         end_time = time.time()
         elapsed_time = end_time - start_time
-        print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
+        #print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
+        #print("Vector being returned: ", (probs*valids))
         return probs*valids
 
 
@@ -163,17 +175,27 @@ class MCTS():
         obs, reward, termination, truncation, info = self.newEnv.last()
     
         if reward != 0: 
-            return -reward
+            if self.newEnv.agent_selection == 'black_0' and reward == 1:
+                return reward
+            elif self.newEnv.agent_selection == 'white_0' and reward == 1:
+                return -reward
+            elif self.newEnv.agent_selection == 'black_0' and reward == -1:
+                return reward
+            else:
+                return -reward
         
         #print("Getting initial string representation on board: ", canonicalBoard.pieces)
         s = self.game.stringRepresentation(canonicalBoard)
         #print("S in search: ", s)
         if s not in self.Ps:
             # print("leaf node")
-            #print("Board passed to NN: ", canonicalBoard.pieces)
+            #print("Board passed to NN: ", canonicalBoard)
             self.Ps[s], v = self.nnet.predict(canonicalBoard)
 
             valids = np.array(obs['action_mask'])
+            valids[-1] = 0
+            if all(element == 0 for element in valids):
+                valids[-1] = 1
             #print("Valid Moves Before Mask: ", valids)
             self.Ps[s] = self.Ps[s]*valids      # masking invalid moves
             #print("Valid Moves After Mask: ", self.Ps[s])
@@ -189,6 +211,7 @@ class MCTS():
                 self.Ps[s] = self.Ps[s] + valids
                 self.Ps[s] /= np.sum(self.Ps[s])
 
+            #print("Assigning: ", valids, " to self.Vs[s]")
             self.Vs[s] = valids
             self.Ns[s] = 0
             #print("Returning from first if with v=", -v)
@@ -198,6 +221,7 @@ class MCTS():
         cur_best = -float('inf')
         best_act = -1
         #print("Valids before choosing action: ", valids)
+        #print("For board: \n", canonicalBoard)
         # pick the action with the highest upper confidence bound
         for a in range(self.game.getActionSize()):
             if valids[a]!=0:
@@ -214,11 +238,16 @@ class MCTS():
 
         a = best_act
         #print("Chose action: ", a)
-        try: 
-            assert(valids[a] != 0)
+        #print("For valids: ", valids)
+        #try: 
+        assert(valids[a] != 0)
+        """
         except AssertionError:
             print("Bad Move (Assertion Error)")
-            return -1e-4
+            print("Chose move: ", a)
+            print("Valids: ", valids)
+            return 0
+        """
         # print("in MCTS.search, need next search, shifting player from 1")
 
         try:
@@ -230,17 +259,20 @@ class MCTS():
             #print("State after action: ", next_s.pieces)
             # print("in MCTS.search, need next search, next player is {}".format(next_player))
         except:
-            print("First move failed")
+            #print("First move failed with action: ", a)
             # print("###############在search内部节点出现错误：###########")
             # display(canonicalBoard)
             # print("action:{},valids:{},Vs:{}".format(a,valids,self.Vs[s]))
             #print("In Except 237 (211)")
             valids=np.array(obs['action_mask'])
+            valids[-1] = 0
+            if all(element == 0 for element in valids):
+                valids[-1] = 1
             #print("Valids in except: ", valids)
             self.Vs[s]=valids
             cur_best = -float('inf')
             best_act = -1
-
+            #print("Valids before choosing action (2nd try): ", valids)
             # pick the action with the highest upper confidence bound
             for a in range(self.game.getActionSize()):
                 if valids[a] != 0:
@@ -261,7 +293,7 @@ class MCTS():
                 next_s = self.game.getBoard(obs, self.newEnv.agent_selection)
                 #print("State after action (2): ", next_s)
             except:
-                print("Second move failed, returning 0")
+                #print("Second move failed with action: ", a)
                 #print("In last (bad) except")
                 return -1e-4
 

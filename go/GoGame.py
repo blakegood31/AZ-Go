@@ -142,24 +142,23 @@ class GoGame(Game):
         if agent == 'black_0':
             zero = 0
         else:
-            zero = np.copysign(0, -1
-            )
+            zero = np.copysign(0, -1)
         canonicalForm = np.zeros((self.getBoardSize()[0], self.getBoardSize()[0]))
         for i in range(self.getBoardSize()[0]):
             for j in range(self.getBoardSize()[0]):
                 if obs['observation'][i, j, 0] == 1:
-                    canonicalForm[i, j] = 1
-                elif obs['observation'][i, j, 1] == 1:
                     canonicalForm[i, j] = -1
+                elif obs['observation'][i, j, 1] == 1:
+                    canonicalForm[i, j] = 1
                 else:
                     canonicalForm[i, j] = zero  # Empty intersection
         return canonicalForm
 
 
 
-def display(board):
+def display(board, agent):
     state = ""
-    b_pieces = np.array(board.pieces)
+    b_pieces = board
 
     n = b_pieces.shape[0]
 
@@ -171,15 +170,27 @@ def display(board):
         state += str(y) + "|"
         for x in range(n):
             piece = b_pieces[y][x]    # get the piece to print
-            if piece == 1:
-                state += "b "
-            elif piece == -1:
-                state += "W "
-            else:
-                if x == n:
-                    state += "-"
+            if agent == 'black_0':
+                if piece == 1:
+                    state += "b "
+                elif piece == -1:
+                    state += "W "
                 else:
-                    state += "- "
+                    if x == n:
+                        state += "-"
+                    else:
+                        state += "- "
+            else:
+                if piece == 1:
+                    state += "W "
+                elif piece == -1:
+                    state += "b "
+                else:
+                    if x == n:
+                        state += "-"
+                    else:
+                        state += "- "
+    
         state += "|\n"
 
     state += " -----------------------"
