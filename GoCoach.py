@@ -11,6 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from pettingzoo.classic import go_v5 as go
 
+
 class Coach():
     """
     This class executes the self-play + learning. It uses the functions defined
@@ -50,51 +51,23 @@ class Coach():
                            the player eventually won the game, else -1.
         """
         trainExamples = []
-        board = self.game.getInitBoard()
-        self.curPlayer = 1
         episode_step = 0
-        whitenum = 0
-        blacknum = 0
-        #debug
-        actionHistory = []
-        canonicalForm = np.zeros((self.args['board_size'], self.args['board_size']))
 
-        for agent in self.env.agent_iter():
+        # create the go environment for each episode
+        env = go.env(board_size=self.args['board_size'])
+        env = env
+        env.reset()
+
+        action_history = []
+
+        for agent in env.agent_iter():
             episode_step += 1
-            print("Episode step: ", episode_step)
-            #Maybe delete??
-            if agent == 'white_0':
-                whitenum = 0
-                blacknum = 1
-            else:
-                whitenum = 1
-                blacknum = 0
-            
-            if self.display == 2:
-                    print(
-                        f"================Episode {self.currentEpisode} Step:{episode_step}=====CURPLAYER:{agent}==========")
-            temp = int(episode_step < self.args.tempThreshold)
+
             # get information about previous state
-            obs, reward, termination, truncation, info = self.env.last()
+            obs, reward, termination, truncation, info = env.last()
+            canonical_form = self.game.get_pz_canonical_form(self.args['board_size'], obs)
 
-            if reward != 0:
-                return [(x[0], x[2], reward * ((-1) ** (x[1] != self.env.agent_selection))) for x in trainExamples]
-
-            #canonicalForm = self.game.getBoard(obs, self.env.agent_selection)
-            # fill out canonical form from observation space
-            
-            for i in range(self.game.getBoardSize()[0]):
-                for j in range(self.game.getBoardSize()[0]):
-                    if obs['observation'][i, j, 0] == 1:
-                        canonicalForm[i, j] = 1
-                    elif obs['observation'][i, j, 1] == 1:
-                        canonicalForm[i, j] = -1
-                    else:
-                        canonicalForm[i, j] = 0  # Empty intersection
-            
             if termination or truncation:
-                # print(reward)
-                print("Terminated Early Coach")
                 if agent == 'black_0' and reward == 1:
                     print("Black Won!")
                 elif agent == 'white_0' and reward == 1:
@@ -106,22 +79,46 @@ class Coach():
                 else:
                     print("Ended Early")
 
-                return [(x[0], x[2], reward * ((-1) ** (x[1] != env.agent_selection))) for x in trainExamples]        
-        
-            #temp = int(episode_step < self.args.tempThreshold)
-            #print("Calling get action prob")
-            pi = self.mcts.getActionProb(canonicalForm, self.env, actionHistory, temp=temp)
+                print("Episode Complete\n")
+                env.close()
 
-            sym = self.game.getSymmetries(canonicalForm, pi)
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != env.agent_selection))) for x in trainExamples]
+
+            temp = int(episode_step < self.args.tempThreshold)
+            pi = self.mcts.getActionProb(canonical_form, env, action_history, temp=temp)
+
+            sym = self.game.getSymmetries(canonical_form, pi)
             for b, p in sym:
-                trainExamples.append([b, self.env.agent_selection, p, None])
+                trainExamples.append([b, env.agent_selection, p, None])
 
             action = np.random.choice(len(pi), p=pi)
-            actionHistory.append(action)
-            print("Chose action: ", action)
-            ##Add print board here
-            #print("Stepping in Coach")
-            self.env.step(action)
+            action_history.append(action)
+
+            # print board state and useful information
+            # current player is the player who is about to play next
+            if self.display == 2:
+                print(
+                    f"================Episode {self.currentEpisode} Step:{episode_step}=====CURPLAYER:{agent}==========")
+
+                if agent == "white_0":
+                    is_white_player = 1
+                    is_black_player = 0
+                else:
+                    is_white_player = 0
+                    is_black_player = 1
+
+                # 1 is always current player
+                for i in range(self.args['board_size']):
+                    for j in range(self.args['board_size']):
+                        if obs['observation'][i, j, is_white_player] == 1:
+                            print('W', end=' ')  # White stone
+                        elif obs['observation'][i, j, is_black_player] == 1:
+                            print('b', end=' ')  # Black stone
+                        else:
+                            print('.', end=' ')  # Empty intersection
+                    print()  # New line for each row
+
+            env.step(action)
 
     """
         while True:
@@ -186,9 +183,6 @@ class Coach():
 
                 for eps in range(self.args.numEps):
                     # print("{}th Episode:".format(eps+1))
-                    env = go.env(board_size=self.args['board_size'])
-                    self.env = env
-                    self.env.reset()
                     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
                     self.currentEpisode = eps + 1
                     iterationTrainExamples += self.executeEpisode()
@@ -196,12 +190,13 @@ class Coach():
                     # bookkeeping + plot progress
                     eps_time.update(time.time() - end)
                     end = time.time()
-                    self.env.close()
+
                     if self.display == 1:
                         bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
                             eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
                             total=bar.elapsed_td, eta=bar.eta_td)
                         bar.next()
+
                 if self.display == 1:
                     bar.finish()
 
@@ -237,7 +232,8 @@ class Coach():
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x, y, z: (pmcts.getActionProb(x, y, z, temp=0)),
-                          lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=0)), self.game, self.args.datetime, display=display,
+                          lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=0)), self.game, self.args.datetime,
+                          display=display,
                           displayValue=self.display.value)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
             self.winRate.append(nwins / self.args.arenaCompare)
@@ -272,7 +268,7 @@ class Coach():
 
     def loadTrainExamples(self):
         modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
-        examplesFile = modelFile #+ ".examples"
+        examplesFile = modelFile  # + ".examples"
         if not os.path.isfile(examplesFile):
             print(examplesFile)
             r = input("File with trainExamples not found. Continue? [y|n]")

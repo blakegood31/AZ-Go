@@ -154,6 +154,19 @@ class GoGame(Game):
                     canonicalForm[i, j] = zero  # Empty intersection
         return canonicalForm
 
+    def get_pz_canonical_form(self, board_size, observation):
+        canonical_form = np.zeros((board_size, board_size))
+
+        for i in range(board_size):
+            for j in range(board_size):
+                if observation['observation'][i, j, 0] == 1:
+                    canonical_form[i, j] = 1
+                elif observation['observation'][i, j, 1] == 1:
+                    canonical_form[i, j] = -1
+                else:
+                    canonical_form[i, j] = 0  # Empty intersection
+
+        return canonical_form
 
 
 def display(board, agent):
