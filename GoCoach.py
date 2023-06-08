@@ -67,7 +67,9 @@ class Coach():
             obs, reward, termination, truncation, info = env.last()
             canonical_form = self.game.get_pz_canonical_form(self.args['board_size'], obs)
 
-            if termination or truncation:
+            # temp reward instead of termination // truncation
+            # in case of infinitely long game
+            if reward != 0:
                 if agent == 'black_0' and reward == 1:
                     print("Black Won!")
                 elif agent == 'white_0' and reward == 1:
@@ -98,7 +100,7 @@ class Coach():
             # current player is the player who is about to play next
             if self.display == 2:
                 print(
-                    f"================Episode {self.currentEpisode} Step:{episode_step}=====CURPLAYER:{agent}==========")
+                    f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
 
                 if agent == "white_0":
                     is_white_player = 1
