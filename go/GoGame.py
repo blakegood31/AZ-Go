@@ -168,43 +168,21 @@ class GoGame(Game):
 
         return canonical_form
 
+    def display_pz_board(self, agent, observation, board_size):
+        if agent == "white_0":
+            is_white_player = 1
+            is_black_player = 0
+        else:
+            is_white_player = 0
+            is_black_player = 1
 
-def display(board, agent):
-    state = ""
-    b_pieces = board
-
-    n = b_pieces.shape[0]
-
-    for y in range(n):
-        state = state + str(y) + " |"
-    state += "\n"
-    state += " -----------------------\n"
-    for y in range(n):
-        state += str(y) + "|"
-        for x in range(n):
-            piece = b_pieces[y][x]    # get the piece to print
-            if agent == 'black_0':
-                if piece == 1:
-                    state += "b "
-                elif piece == -1:
-                    state += "W "
+        # 1 is always current player
+        for i in range(board_size):
+            for j in range(board_size):
+                if observation['observation'][i, j, is_white_player] == 1:
+                    print('W', end=' ')  # White stone
+                elif observation['observation'][i, j, is_black_player] == 1:
+                    print('b', end=' ')  # Black stone
                 else:
-                    if x == n:
-                        state += "-"
-                    else:
-                        state += "- "
-            else:
-                if piece == 1:
-                    state += "W "
-                elif piece == -1:
-                    state += "b "
-                else:
-                    if x == n:
-                        state += "-"
-                    else:
-                        state += "- "
-    
-        state += "|\n"
-
-    state += " -----------------------"
-    return state
+                    print('.', end=' ')  # Empty intersection
+            print()  # New line for each row
