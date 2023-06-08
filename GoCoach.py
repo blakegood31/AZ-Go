@@ -2,6 +2,7 @@ from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
 import numpy as np
+
 from pytorch_classification.utils import Bar, AverageMeter
 import time, os, sys
 from pickle import Pickler, Unpickler
@@ -9,6 +10,7 @@ from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
 from pettingzoo.classic import go_v5 as go
+from go import PZGo
 
 
 class Coach:
@@ -53,7 +55,8 @@ class Coach:
         episode_step = 0
 
         # create the go environment for each episode
-        episode_env = go.env(board_size=self.args['board_size'])
+        # episode_env = go.env(board_size=self.args['board_size'])
+        episode_env = PZGo.env(board_size=self.args['board_size'])
         episode_env.reset()
 
         action_history = []
@@ -101,7 +104,6 @@ class Coach:
                     f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
 
                 self.game.display_pz_board(board_size=self.args['board_size'], observation=obs, agent=agent)
-                print(f"Player {agent} chose to PASS")
 
             episode_env.step(action)
 

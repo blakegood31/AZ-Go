@@ -3,6 +3,7 @@ import time
 import sys
 import numpy as np
 from pettingzoo.classic import go_v5 as go
+from go import PZGo
 
 
 class MCTS:
@@ -45,14 +46,20 @@ class MCTS:
         start_time = time.time()
 
         for i in range(max(self.args.numMCTSSims, self.smartSimNum)):
-            search_env = go.env(board_size=self.args['board_size'])
 
-            if len(action_history) == 0:
-                search_env.reset()
-            else:
-                search_env.reset()
-                for i in range(len(action_history)):
-                    search_env.step(action_history[i])
+            # make a copy of the environment
+            search_env = PZGo.env(board_size=self.args['board_size'])
+            search_env.reset()
+            search_env.unwrapped.deep_copy(env.unwrapped)
+
+            # search_env = go.env(board_size=self.args['board_size'])
+            #
+            # if len(action_history) == 0:
+            #     search_env.reset()
+            # else:
+            #     search_env.reset()
+            #     for i in range(len(action_history)):
+            #         search_env.step(action_history[i])
 
             self.search(search_env, canonical_board)
 
