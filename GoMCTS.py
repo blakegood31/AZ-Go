@@ -1,21 +1,11 @@
 import math
+import time
 import sys
-
 import numpy as np
-import time
-
-try:
-    from .go.GoGame import display
-except:
-    try:
-        from alphabrain.go.GoGame import display
-    except:
-        from go.GoGame import display
 from pettingzoo.classic import go_v5 as go
-import time
 
 
-class MCTS():
+class MCTS:
     """
     This class handles the MCTS tree.
     """
@@ -64,7 +54,7 @@ class MCTS():
                 for i in range(len(action_history)):
                     search_env.step(action_history[i])
 
-            self.search(search_env, canonical_board, num_calls=0)
+            self.search(search_env, canonical_board)
 
             # release resources used by env
             search_env.close()
@@ -147,7 +137,7 @@ class MCTS():
 
         return probs * valids
 
-    def search(self, search_env, canonical_board, num_calls):
+    def search(self, search_env, canonical_board):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -166,10 +156,6 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-
-        if num_calls > 200:
-            # negative reward for infinite game
-            return -1e-4
 
         obs, reward, termination, truncation, info = search_env.last()
 
@@ -209,7 +195,6 @@ class MCTS():
             return -v
 
         # not a leaf node
-        # valids = self.Vs[s]
         valids = np.array(obs['action_mask'])
         cur_best = -float('inf')
         best_act = -1
@@ -231,13 +216,6 @@ class MCTS():
 
         a = best_act
         assert (valids[a] != 0)
-        """
-        except AssertionError:
-            print("Bad Move (Assertion Error)")
-            print("Chose move: ", a)
-            print("Valids: ", valids)
-            return 0
-        """
 
         try:
             search_env.step(a)
@@ -274,7 +252,7 @@ class MCTS():
             except:
                 return -1e-4
 
-        v = self.search(search_env, next_s, num_calls + 1)
+        v = self.search(search_env, next_s)
 
         if (s, a) in self.Qsa:
             assert (valids[a] != 0)

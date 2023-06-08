@@ -1,7 +1,6 @@
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
-from go.GoGame import display
 import numpy as np
 from pytorch_classification.utils import Bar, AverageMeter
 import time, os, sys
@@ -12,7 +11,7 @@ import matplotlib.pyplot as plt
 from pettingzoo.classic import go_v5 as go
 
 
-class Coach():
+class Coach:
     """
     This class executes the self-play + learning. It uses the functions defined
     in Game and NeuralNet. args are specified in main.py.
@@ -38,33 +37,32 @@ class Coach():
         """
         This function executes one episode of self-play, starting with player 1.
         As the game is played, each turn is added as a training example to
-        trainExamples. The game is played till the game ends. After the game
+        train_examples. The game is played till the game ends. After the game
         ends, the outcome of the game is used to assign values to each example
-        in trainExamples.
+        in train_examples.
 
         It uses a temp=1 if episodeStep < tempThreshold, and thereafter
         uses temp=0.
 
         Returns:
-            trainExamples: a list of examples of the form (canonicalBoard,pi,v)
+            train_examples: a list of examples of the form (canonicalBoard,pi,v)
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
-        trainExamples = []
+        train_examples = []
         episode_step = 0
 
         # create the go environment for each episode
-        env = go.env(board_size=self.args['board_size'])
-        env = env
-        env.reset()
+        episode_env = go.env(board_size=self.args['board_size'])
+        episode_env.reset()
 
         action_history = []
 
-        for agent in env.agent_iter():
+        for agent in episode_env.agent_iter():
             episode_step += 1
 
             # get information about previous state
-            obs, reward, termination, truncation, info = env.last()
+            obs, reward, termination, truncation, info = episode_env.last()
             canonical_form = self.game.get_pz_canonical_form(self.args['board_size'], obs)
 
             # temp reward instead of termination // truncation
@@ -82,16 +80,16 @@ class Coach():
                     print("Ended Early")
 
                 print("Episode Complete\n")
-                env.close()
+                episode_env.close()
 
-                return [(x[0], x[2], reward * ((-1) ** (x[1] != env.agent_selection))) for x in trainExamples]
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
 
             temp = int(episode_step < self.args.tempThreshold)
-            pi = self.mcts.getActionProb(canonical_form, env, action_history, temp=temp)
+            pi = self.mcts.getActionProb(canonical_form, episode_env, action_history, temp=temp)
 
             sym = self.game.getSymmetries(canonical_form, pi)
             for b, p in sym:
-                trainExamples.append([b, env.agent_selection, p, None])
+                train_examples.append([b, episode_env.agent_selection, p, None])
 
             action = np.random.choice(len(pi), p=pi)
             action_history.append(action)
@@ -102,58 +100,10 @@ class Coach():
                 print(
                     f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
 
-                if agent == "white_0":
-                    is_white_player = 1
-                    is_black_player = 0
-                else:
-                    is_white_player = 0
-                    is_black_player = 1
+                self.game.display_pz_board(board_size=self.args['board_size'], observation=obs, agent=agent)
+                print(f"Player {agent} chose to PASS")
 
-                # 1 is always current player
-                for i in range(self.args['board_size']):
-                    for j in range(self.args['board_size']):
-                        if obs['observation'][i, j, is_white_player] == 1:
-                            print('W', end=' ')  # White stone
-                        elif obs['observation'][i, j, is_black_player] == 1:
-                            print('b', end=' ')  # Black stone
-                        else:
-                            print('.', end=' ')  # Empty intersection
-                    print()  # New line for each row
-
-            env.step(action)
-
-    """
-        while True:
-
-            episodeStep += 1
-            if self.display == 2:
-                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode, episodeStep,
-                                                                                          "White" if self.curPlayer == -1 else "Black"))
-            canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
-            temp = int(episodeStep < self.args.tempThreshold)
-
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-            # get different symmetries/rotations of the board
-            sym = self.game.getSymmetries(canonicalBoard, pi)
-            for b, p in sym:
-                trainExamples.append([b, self.curPlayer, p, None])
-            action = np.random.choice(len(pi), p=pi)
-
-            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
-            if self.display == 2:
-                print("BOARD updated:")
-                # display(board)
-                print(display(board))
-            r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
-            if r != 0:
-                if self.display == 2:
-                    print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
-                                                                                        score[0], score[1]))
-
-                return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
-            elif r == 0 and self.display == 2:
-                print(f"Current score: b {score[0]}, W {score[1]}")
-    """
+            episode_env.step(action)
 
     def learn(self):
         """
@@ -168,13 +118,7 @@ class Coach():
 
         for i in range(1, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
-            # bookkeeping
-            print('###########################ITER:{}###########################'.format(str(i)))
-            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.args.datetime}.txt', 'a')
-            arena_log.write("##########################################\n")
-            arena_log.write("ITERATION: " + str(i) + "\n")
-            arena_log.write("##########################################\n\n")
-            arena_log.close()
+
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
@@ -235,9 +179,8 @@ class Coach():
             print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x, y, z: (pmcts.getActionProb(x, y, z, temp=0)),
                           lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=0)), self.game, self.args.datetime,
-                          display=display,
-                          displayValue=self.display.value)
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
+                          display_value=self.display.value)
+            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
