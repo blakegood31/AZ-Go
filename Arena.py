@@ -1,7 +1,8 @@
 import numpy as np
 from pytorch_classification.utils import Bar, AverageMeter
 import time
-from pettingzoo.classic import go_v5 as go
+#from pettingzoo.classic import go_v5 as go
+from go import PZGo as go
 
 
 class Arena:
@@ -27,6 +28,8 @@ class Arena:
         self.displayValue = display_value
         self.datetime = datetime
         self.game_num = 1
+        self.komi = 1 if self.game.getBoardSize()[0]<=7 else 7.5
+        self.by_score = 0.5 * (self.game.getBoardSize()[0] * self.game.getBoardSize()[0] + self.komi)
 
     def playGame(self):
         """
@@ -73,7 +76,24 @@ class Arena:
                         outcome = 1
                     arena_env.close()
                     return outcome
-
+                
+            #End game if a player is winning by certain threshold
+            score = arena_env.unwrapped.getScore()
+            if ((score > self.by_score) or (score < -self.by_score)) and step > 14: 
+                outcome = 0
+                print("Won by score")
+                if self.game_num % 2 == 0:
+                    if score > 0:
+                        outcome = -1
+                    else:
+                        outcome = 1
+                else:
+                    if score > 0:
+                        outcome = 1
+                    else:
+                        outcome = -1
+                return outcome
+            
             # determine player and moves
             # new model is player2
             # old model is player1
@@ -99,7 +119,7 @@ class Arena:
                     # new model = white
                     moves = self.player2(canonical_form, arena_env, action_history)
                     current_player_num = 2
-
+            
             action = np.argmax(moves)
             action_history.append(action)
 

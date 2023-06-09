@@ -17,6 +17,7 @@ class Display(IntEnum):
 
 
 BoardSize = 5
+komi = 1 if BoardSize<=7 else 7.5
 NetType = 'CNN'  # or 'RES'
 tag = 'MCTS_SimModified'
 
@@ -37,6 +38,7 @@ args = dotdict({
     'display': Display.DISPLAY_BOARD,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
     'board_size': BoardSize,
+    'by_score': 0.5 * (BoardSize * BoardSize + komi)
 })
 
 if args.load_model:

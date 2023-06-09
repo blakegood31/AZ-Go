@@ -9,8 +9,8 @@ from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
-from pettingzoo.classic import go_v5 as go
-from go import PZGo
+#from pettingzoo.classic import go_v5 as go
+from go import PZGo as go
 
 
 class Coach:
@@ -56,7 +56,7 @@ class Coach:
 
         # create the go environment for each episode
         # episode_env = go.env(board_size=self.args['board_size'])
-        episode_env = PZGo.env(board_size=self.args['board_size'])
+        episode_env = go.env(board_size=self.args['board_size'])
         episode_env.reset()
 
         action_history = []
@@ -67,7 +67,6 @@ class Coach:
             # get information about previous state
             obs, reward, termination, truncation, info = episode_env.last()
             canonical_form = self.game.get_pz_canonical_form(self.args['board_size'], obs)
-
             # temp reward instead of termination // truncation
             # in case of infinitely long game
             if reward != 0:
@@ -87,6 +86,18 @@ class Coach:
 
                 return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
 
+            #End game if a player is winning by certain threshold
+            score = episode_env.unwrapped.getScore()
+            if ((score > self.args['by_score']) or (score < -self.args['by_score'])) and episode_step > 14:
+                reward = 0
+                if score > 0:
+                    print("Black Won! By Score: ", score)
+                    reward = 1
+                else:
+                    print("White Won! By Score: ", score)
+                    reward = -1
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
+             
             temp = int(episode_step < self.args.tempThreshold)
             pi = self.mcts.getActionProb(canonical_form, episode_env, action_history, temp=temp)
 
@@ -96,16 +107,18 @@ class Coach:
 
             action = np.random.choice(len(pi), p=pi)
             action_history.append(action)
-
+            #print("Player: ", episode_env.agent_selection, "  Chose action: ", action)
             # print board state and useful information
             # current player is the player who is about to play next
+            episode_env.step(action)
+            score = episode_env.unwrapped.getScore()
+            print ("Current Score = ", score)
             if self.display == 2:
                 print(
                     f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
 
                 self.game.display_pz_board(board_size=self.args['board_size'], observation=obs, agent=agent)
 
-            episode_env.step(action)
 
     def learn(self):
         """
@@ -179,8 +192,8 @@ class Coach:
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x, y, z: (pmcts.getActionProb(x, y, z, temp=0)),
-                          lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=0)), self.game, self.args.datetime,
+            arena = Arena(lambda x, y, z: (pmcts.getActionProb(x, y, z, temp=1)),
+                          lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=1)), self.game, self.args.datetime,
                           display_value=self.display.value)
             pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)

@@ -2,8 +2,9 @@ import math
 import time
 import sys
 import numpy as np
-from pettingzoo.classic import go_v5 as go
-from go import PZGo
+#from pettingzoo.classic import go_v5 as go
+from go import PZGo as go
+import copy
 
 
 class MCTS:
@@ -48,20 +49,11 @@ class MCTS:
         for i in range(max(self.args.numMCTSSims, self.smartSimNum)):
 
             # make a copy of the environment
-            search_env = PZGo.env(board_size=self.args['board_size'])
+            search_env = go.env(board_size=self.args['board_size'])
             search_env.reset()
-            search_env.unwrapped.deep_copy(env.unwrapped)
+            search_env = copy.deepcopy(env)
 
-            # search_env = go.env(board_size=self.args['board_size'])
-            #
-            # if len(action_history) == 0:
-            #     search_env.reset()
-            # else:
-            #     search_env.reset()
-            #     for i in range(len(action_history)):
-            #         search_env.step(action_history[i])
-
-            self.search(search_env, canonical_board)
+            self.search(search_env, canonical_board, calls=1)
 
             # release resources used by env
             search_env.close()
@@ -71,6 +63,9 @@ class MCTS:
 
         counts = np.array([self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.game.getActionSize())])
         valids = np.array(obs['action_mask'])
+        valids[-1] = 0
+        if all(element == 0 for element in valids):
+            valids[-1] = 1
 
         self.smartSimNum = 10 * (np.count_nonzero(valids))
 
@@ -78,7 +73,7 @@ class MCTS:
             counts = valids
         else:
             counts *= valids
-
+            
         if temp == 0:
             if np.sum(counts) == 0:
                 bestA = obs['observation'].shape[0] * obs['observation'].shape[0]
@@ -126,7 +121,7 @@ class MCTS:
             # debug
             end_time = time.time()
             elapsed_time = end_time - start_time
-            print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
+            #print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
 
             return probs
 
@@ -144,7 +139,7 @@ class MCTS:
 
         return probs * valids
 
-    def search(self, search_env, canonical_board):
+    def search(self, search_env, canonical_board, calls):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -163,6 +158,8 @@ class MCTS:
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
+        if calls > 500:
+            return 1e-4
 
         obs, reward, termination, truncation, info = search_env.last()
 
@@ -183,6 +180,9 @@ class MCTS:
             self.Ps[s], v = self.nnet.predict(canonical_board)
 
             valids = np.array(obs['action_mask'])
+            valids[-1] = 0
+            if all(element == 0 for element in valids):
+                valids[-1] = 1
 
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
             sum_Ps_s = np.sum(self.Ps[s])
@@ -203,6 +203,9 @@ class MCTS:
 
         # not a leaf node
         valids = np.array(obs['action_mask'])
+        valids[-1] = 0
+        if all(element == 0 for element in valids):
+            valids[-1] = 1
         cur_best = -float('inf')
         best_act = -1
 
@@ -259,7 +262,7 @@ class MCTS:
             except:
                 return -1e-4
 
-        v = self.search(search_env, next_s)
+        v = self.search(search_env, next_s, calls+1)
 
         if (s, a) in self.Qsa:
             assert (valids[a] != 0)

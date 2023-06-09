@@ -433,42 +433,46 @@ class raw_env(AECEnv):
     # copy properties from one Go environment onto another
     def deep_copy(self, env):
         # attributes from reset
-        self.has_reset = env.has_reset
+        #env.has_reset = self.has_reset
 
         # since _go is an object, must equal all individual properties of _go
-        self._go.board = env._go.board
-        self._go.board_deltas = env._go.board_deltas
-        self._go.caps = env._go.caps
-        self._go.ko = env._go.ko
-        self._go.komi = env._go.komi
-        self._go.n = env._go.n
-        self._go.recent = env._go.recent
-        self._go.to_play = env._go.to_play
+        env._go.board = self._go.board
+        env._go.board_deltas = self._go.board_deltas 
+        env._go.caps = self._go.caps
+        env._go.ko = self._go.ko
+        env._go.komi = self._go.komi
+        env._go.n = self._go.n
+        env._go.recent = self._go.recent
+        env._go.to_play = self._go.to_play
 
         # also an object
-        self._go.lib_tracker.group_index = env._go.lib_tracker.group_index
-        self._go.lib_tracker.groups = env._go.lib_tracker.groups
-        self._go.lib_tracker.liberty_cache = env._go.lib_tracker.liberty_cache
-        self._go.lib_tracker.max_group_id = env._go.lib_tracker.max_group_id
+        env._go.lib_tracker.group_index = self._go.lib_tracker.group_index 
+        env._go.lib_tracker.groups = self._go.lib_tracker.groups
+        env._go.lib_tracker.liberty_cache = self._go.lib_tracker.liberty_cache
+        env._go.lib_tracker.max_group_id = self._go.lib_tracker.max_group_id 
 
         # also an object
-        self._agent_selector.agent_order = env._agent_selector.agent_order
-        self._agent_selector.selected_agent = env._agent_selector.selected_agent
-        self._agent_selector._current_agent = env._agent_selector._current_agent
+        env._agent_selector.agent_order = self._agent_selector.agent_order 
+        env._agent_selector.selected_agent = self._agent_selector.selected_agent 
+        env._agent_selector._current_agent = self._agent_selector._current_agent 
 
-        self.agents = env.agents
-        self.agent_selection = env.agent_selection
-        self._cumulative_rewards = env._cumulative_rewards
-        self.rewards = env.rewards
-        self.terminations = env.terminations
-        self.truncations = env.truncations
-        self.infos = env.infos
-        self.next_legal_moves = env.next_legal_moves
-        self._last_obs = env._last_obs
-        self.board_history = env.board_history
+        env.agents = self.agents
+        env.agent_selection = self.agent_selection
+        env._cumulative_rewards = self._cumulative_rewards 
+        env.rewards = self.rewards
+        env.terminations = self.terminations
+        env.truncations = self.truncations
+        env.infos = self.infos
+        env.next_legal_moves = self.next_legal_moves
+        env._last_obs = self._last_obs
+        env.board_history = self.board_history
 
         # other attributes
-        self.observation_spaces = env.observation_spaces
+        env.observation_spaces = self.observation_spaces
 
+        return env
         # print("ended deep copy")
+        
+    def getScore(self):
+        return self._go.score()
 
