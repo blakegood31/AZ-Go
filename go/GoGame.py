@@ -118,12 +118,12 @@ class GoGame(Game):
         return canonicalBoard
 
     # modified
-    def getSymmetries(self, board, pi):
+    def getSymmetries(self, canonicalForm, pi):
         # mirror, rotational
         assert(len(pi) == self.n**2 + 1)  # 1 for pass
         pi_board = np.reshape(pi[:-1], (self.n, self.n))
         l = []
-        b_pieces = board.pieces
+        b_pieces = canonicalForm
         for i in range(1, 5):
             for j in [True, False]:
                 newB = np.rot90(b_pieces, i)
@@ -134,35 +134,55 @@ class GoGame(Game):
                 l += [(newB, list(newPi.ravel()) + [pi[-1]])]
         return l
 
-    def stringRepresentation(self, board):
+    def stringRepresentation(self, canonicalForm):
         # 8x8 numpy array (canonical board)
-        return np.array(board.pieces).tostring()
+        return np.array(canonicalForm).tostring()
 
-
-def display(board):
-    state = ""
-    b_pieces = np.array(board.pieces)
-
-    n = b_pieces.shape[0]
-
-    for y in range(n):
-        state = state + str(y) + " |"
-    state += "\n"
-    state += " -----------------------\n"
-    for y in range(n):
-        state += str(y) + "|"
-        for x in range(n):
-            piece = b_pieces[y][x]    # get the piece to print
-            if piece == 1:
-                state += "b "
-            elif piece == -1:
-                state += "W "
-            else:
-                if x == n:
-                    state += "-"
+    def getBoard(self, obs, agent):
+        if agent == 'black_0':
+            zero = 0
+        else:
+            zero = np.copysign(0, -1)
+        canonicalForm = np.zeros((self.getBoardSize()[0], self.getBoardSize()[0]))
+        for i in range(self.getBoardSize()[0]):
+            for j in range(self.getBoardSize()[0]):
+                if obs['observation'][i, j, 0] == 1:
+                    canonicalForm[i, j] = -1
+                elif obs['observation'][i, j, 1] == 1:
+                    canonicalForm[i, j] = 1
                 else:
-                    state += "- "
-        state += "|\n"
+                    canonicalForm[i, j] = zero  # Empty intersection
+        return canonicalForm
 
-    state += " -----------------------"
-    return state
+    def get_pz_canonical_form(self, board_size, observation):
+        canonical_form = np.zeros((board_size, board_size))
+
+        for i in range(board_size):
+            for j in range(board_size):
+                if observation['observation'][i, j, 0] == 1:
+                    canonical_form[i, j] = 1
+                elif observation['observation'][i, j, 1] == 1:
+                    canonical_form[i, j] = -1
+                else:
+                    canonical_form[i, j] = 0  # Empty intersection
+
+        return canonical_form
+
+    def display_pz_board(self, agent, observation, board_size):
+        if agent == "white_0":
+            is_white_player = 1
+            is_black_player = 0
+        else:
+            is_white_player = 0
+            is_black_player = 1
+
+        # 1 is always current player
+        for i in range(board_size):
+            for j in range(board_size):
+                if observation['observation'][i, j, is_white_player] == 1:
+                    print('W', end=' ')  # White stone
+                elif observation['observation'][i, j, is_black_player] == 1:
+                    print('b', end=' ')  # Black stone
+                else:
+                    print('.', end=' ')  # Empty intersection
+            print()  # New line for each row

@@ -1,17 +1,19 @@
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
-from go.GoGame import display
 import numpy as np
+
 from pytorch_classification.utils import Bar, AverageMeter
 import time, os, sys
 from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
+#from pettingzoo.classic import go_v5 as go
+from go import PZGo as go
 
 
-class Coach():
+class Coach:
     """
     This class executes the self-play + learning. It uses the functions defined
     in Game and NeuralNet. args are specified in main.py.
@@ -37,52 +39,85 @@ class Coach():
         """
         This function executes one episode of self-play, starting with player 1.
         As the game is played, each turn is added as a training example to
-        trainExamples. The game is played till the game ends. After the game
+        train_examples. The game is played till the game ends. After the game
         ends, the outcome of the game is used to assign values to each example
-        in trainExamples.
+        in train_examples.
 
         It uses a temp=1 if episodeStep < tempThreshold, and thereafter
         uses temp=0.
 
         Returns:
-            trainExamples: a list of examples of the form (canonicalBoard,pi,v)
+            train_examples: a list of examples of the form (canonicalBoard,pi,v)
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
-        trainExamples = []
-        board = self.game.getInitBoard()
-        self.curPlayer = 1
-        episodeStep = 0
-        while True:
+        train_examples = []
+        episode_step = 0
 
-            episodeStep += 1
-            if self.display == 2:
-                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode, episodeStep,
-                                                                                          "White" if self.curPlayer == -1 else "Black"))
-            canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
-            temp = int(episodeStep < self.args.tempThreshold)
+        # create the go environment for each episode
+        # episode_env = go.env(board_size=self.args['board_size'])
+        episode_env = go.env(board_size=self.args['board_size'])
+        episode_env.reset()
 
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
-            # get different symmetries/rotations of the board
-            sym = self.game.getSymmetries(canonicalBoard, pi)
+        action_history = []
+
+        for agent in episode_env.agent_iter():
+            episode_step += 1
+
+            # get information about previous state
+            obs, reward, termination, truncation, info = episode_env.last()
+            canonical_form = self.game.get_pz_canonical_form(self.args['board_size'], obs)
+            # temp reward instead of termination // truncation
+            # in case of infinitely long game
+            if reward != 0:
+                if agent == 'black_0' and reward == 1:
+                    print("Black Won!")
+                elif agent == 'white_0' and reward == 1:
+                    print("White Won!")
+                elif agent == 'black_0' and reward == -1:
+                    print("White Won!")
+                elif agent == 'white_0' and reward == -1:
+                    print("Black Won!")
+                else:
+                    print("Ended Early")
+
+                print("Episode Complete\n")
+                episode_env.close()
+
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
+
+            #End game if a player is winning by certain threshold
+            score = episode_env.unwrapped.getScore()
+            if ((score > self.args['by_score']) or (score < -self.args['by_score'])) and episode_step > 14:
+                reward = 0
+                if score > 0:
+                    print("Black Won! By Score: ", score)
+                    reward = 1
+                else:
+                    print("White Won! By Score: ", score)
+                    reward = -1
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
+             
+            temp = int(episode_step < self.args.tempThreshold)
+            pi = self.mcts.getActionProb(canonical_form, episode_env, action_history, temp=temp)
+
+            sym = self.game.getSymmetries(canonical_form, pi)
             for b, p in sym:
-                trainExamples.append([b, self.curPlayer, p, None])
+                train_examples.append([b, episode_env.agent_selection, p, None])
+
             action = np.random.choice(len(pi), p=pi)
-
-            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
+            action_history.append(action)
+            #print("Player: ", episode_env.agent_selection, "  Chose action: ", action)
+            # print board state and useful information
+            # current player is the player who is about to play next
+            episode_env.step(action)
+            score = episode_env.unwrapped.getScore()
+            print ("Current Score = ", score)
             if self.display == 2:
-                print("BOARD updated:")
-                # display(board)
-                print(display(board))
-            r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
-            if r != 0:
-                if self.display == 2:
-                    print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
-                                                                                        score[0], score[1]))
+                print(
+                    f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
 
-                return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
-            elif r == 0 and self.display == 2:
-                print(f"Current score: b {score[0]}, W {score[1]}")
+                self.game.display_pz_board(board_size=self.args['board_size'], observation=obs, agent=agent)
 
 
     def learn(self):
@@ -98,13 +133,7 @@ class Coach():
 
         for i in range(1, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
-            # bookkeeping
-            print('###########################ITER:{}###########################'.format(str(i)))
-            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.args.datetime}.txt', 'a')
-            arena_log.write("##########################################\n")
-            arena_log.write("ITERATION: " + str(i) + "\n")
-            arena_log.write("##########################################\n\n")
-            arena_log.close()
+
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
@@ -128,6 +157,7 @@ class Coach():
                             eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
                             total=bar.elapsed_td, eta=bar.eta_td)
                         bar.next()
+
                 if self.display == 1:
                     bar.finish()
 
@@ -162,10 +192,10 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime, display=display,
-                          displayValue=self.display.value)
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
+            arena = Arena(lambda x, y, z: (pmcts.getActionProb(x, y, z, temp=1)),
+                          lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=1)), self.game, self.args.datetime,
+                          display_value=self.display.value)
+            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
@@ -198,7 +228,7 @@ class Coach():
 
     def loadTrainExamples(self):
         modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
-        examplesFile = modelFile #+ ".examples"
+        examplesFile = modelFile  # + ".examples"
         if not os.path.isfile(examplesFile):
             print(examplesFile)
             r = input("File with trainExamples not found. Continue? [y|n]")
@@ -218,7 +248,7 @@ class Coach():
         # close previous graph
         plt.close()
 
-        plt.rcParams["figure.figsize"] = (18, 12)
+        plt.rcParams["figure.figsize"] = (17, 10)
 
         plt.subplot(2, 2, 1)
         plt.title("V Loss During Training")
@@ -242,4 +272,7 @@ class Coach():
         plt.axhline(y=self.args.updateThreshold, color='b', linestyle='-')
         plt.plot(self.winRate, 'r', label='Win Rate')
 
-        plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")
+        plt.subplots_adjust(hspace=0.5, wspace=0.3)
+
+        dpi = 100
+        plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png", dpi=dpi)
