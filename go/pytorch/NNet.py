@@ -1,7 +1,11 @@
 import os
 import time
+from collections import OrderedDict
+
 import numpy as np
 import sys
+
+from torch import nn
 
 sys.path.append('../../')
 
@@ -26,7 +30,7 @@ args = dotdict({
     'lr': 0.001,
     'dropout': 0.3,
     'epochs': 10,
-    'batch_size': 64,
+    'batch_size': 256,
     'cuda': torch.cuda.is_available(),
     'num_channels': 512,
 })
@@ -42,6 +46,10 @@ class NNetWrapper(NeuralNet):
             self.nnet = netMkr.makeNet()
         else:
             self.nnet = GoNNet(game, args)
+            self.nnet = nn.DataParallel(self.nnet)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.nnet.to(device)
+
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
@@ -169,3 +177,15 @@ class NNetWrapper(NeuralNet):
             raise BaseException("No model in path {}".format(filepath))
         checkpoint = torch.load(filepath)
         self.nnet.load_state_dict(checkpoint['state_dict'])
+
+    def load_checkpoint_from_plain_to_parallel(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):
+        filepath = os.path.join(folder, filename)
+        checkpoint = torch.load(filepath)
+        state_dict = checkpoint['state_dict']
+
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = "module." + k  # add 'module.' of dataparallel, so it works with examples from plain model
+            new_state_dict[name] = v
+
+        self.nnet.load_state_dict(new_state_dict)
