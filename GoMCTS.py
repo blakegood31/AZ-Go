@@ -2,8 +2,7 @@ import math
 import time
 import sys
 import numpy as np
-#from pettingzoo.classic import go_v5 as go
-from go import PZGo as go
+from pettingzoo.classic import go_v5 as go
 import copy
 
 
@@ -33,7 +32,7 @@ class MCTS:
         self.Es = {}  # stores game.getGameEnded ended for board s
         self.Vs = {}  # stores game.getValidMoves for board s
 
-    def getActionProb(self, canonical_board, env, action_history, temp=1):
+    def getActionProb(self, canonical_board, env, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.

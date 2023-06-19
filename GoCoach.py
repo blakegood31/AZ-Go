@@ -9,8 +9,7 @@ from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
-#from pettingzoo.classic import go_v5 as go
-from go import PZGo as go
+from pettingzoo.classic import go_v5 as go
 
 
 class Coach:
@@ -34,6 +33,7 @@ class Coach:
         self.v_loss_per_iteration = []
         self.winRate = []
         self.currentEpisode = 0
+        self.sgf_output = ""
 
     def executeEpisode(self):
         """
@@ -58,8 +58,6 @@ class Coach:
         # episode_env = go.env(board_size=self.args['board_size'])
         episode_env = go.env(board_size=self.args['board_size'])
         episode_env.reset()
-
-        action_history = []
 
         for agent in episode_env.agent_iter():
             episode_step += 1
@@ -86,8 +84,8 @@ class Coach:
 
                 return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
 
-            #End game if a player is winning by certain threshold
-            score = episode_env.unwrapped.getScore()
+            # End game if a player is winning by certain threshold
+            score = episode_env.unwrapped._go.score()
             if ((score > self.args['by_score']) or (score < -self.args['by_score'])) and episode_step > 14:
                 reward = 0
                 if score > 0:
@@ -97,28 +95,26 @@ class Coach:
                     print("White Won! By Score: ", score)
                     reward = -1
                 return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
-             
+
             temp = int(episode_step < self.args.tempThreshold)
-            pi = self.mcts.getActionProb(canonical_form, episode_env, action_history, temp=temp)
+            pi = self.mcts.getActionProb(canonical_form, episode_env, temp=temp)
 
             sym = self.game.getSymmetries(canonical_form, pi)
             for b, p in sym:
                 train_examples.append([b, episode_env.agent_selection, p, None])
 
             action = np.random.choice(len(pi), p=pi)
-            action_history.append(action)
-            #print("Player: ", episode_env.agent_selection, "  Chose action: ", action)
+            # print("Player: ", episode_env.agent_selection, "  Chose action: ", action)
             # print board state and useful information
             # current player is the player who is about to play next
             episode_env.step(action)
-            score = episode_env.unwrapped.getScore()
-            print ("Current Score = ", score)
+            score = episode_env.unwrapped._go.score()
+            print("Current Score = ", score)
             if self.display == 2:
                 print(
                     f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
 
                 self.game.display_pz_board(board_size=self.args['board_size'], observation=obs, agent=agent)
-
 
     def learn(self):
         """
@@ -191,11 +187,15 @@ class Coach:
             iterHistory['ITER_DETAIL'].append(self.logPath + 'ITER_{}_TRAIN_LOG.csv'.format(i))
             nmcts = MCTS(self.game, self.nnet, self.args)
 
+            # clear sgf_output for next game and create new file
+            self.sgf_output = ""
+            self.create_sgf_file_for_game(iteration=i)
+
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x, y, z: (pmcts.getActionProb(x, y, z, temp=1)),
-                          lambda x, y, z: (nmcts.getActionProb(x, y, z, temp=1)), self.game, self.args.datetime,
+            arena = Arena(lambda x, y: (pmcts.getActionProb(x, y, temp=1)),
+                          lambda x, y: (nmcts.getActionProb(x, y, temp=1)), self.game, self.args.datetime,
                           display_value=self.display.value)
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+            pwins, nwins, draws, all_arena_games_history = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
@@ -209,6 +209,10 @@ class Coach:
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
 
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
+
+            # combine all games into 1 tree and save to sgf output file
+            self.combine_games_into_sgf_tree(iteration=i, games=all_arena_games_history)
+            self.end_sgf_file_for_game(iteration=i, games=all_arena_games_history)
 
             self.saveTrainingPlots()
 
@@ -276,3 +280,119 @@ class Coach:
 
         dpi = 100
         plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png", dpi=dpi)
+
+    # Smart Game Format Helper Functions
+
+    # create the file and a header for use later using sgf
+    # https://en.wikipedia.org/wiki/Smart_Game_Format
+    def create_sgf_file_for_game(self, iteration):
+        sgf_file = open(f'logs/go/Game_History/Iteration {iteration}_Games_{self.args.datetime}.sgf', 'w')
+        sgf_file.write(
+            f"(;\nEV[AlphaGo Self-Play]\nGN[Iteration {iteration}]\nDT[{self.args.datetime}]\nPB[TCU_AlphaGo]\nPW[TCU_AlphaGo]"
+            f"\nSZ[{self.game.getBoardSize()[0]}]\nKM[7.5]\nRU["
+            f"Chinese]\n\n")
+        sgf_file.close()
+
+    def combine_games_into_sgf_tree(self, games, iteration):
+        self.sgf_output += "("
+
+        for game in range(0, 1):
+            for move in range(len(games[game])):
+                self.sgf_output += games[game][move]
+
+        self.sgf_output += ")"
+
+        for game_idx in range(1, len(games)):
+            pointer = 0
+            should_search = True
+            for move_idx in range(len(games[game_idx])):
+                current_move = games[game_idx][move_idx]
+                if should_search:
+                    # return pointer to fill in rest of game
+                    pointer, should_search = self.search_sgf_string(pointer, current_move)
+                else:
+                    # split the output string and add in move where needed
+                    p1 = self.sgf_output[:pointer]
+                    p2 = self.sgf_output[pointer:]
+                    self.sgf_output = p1 + current_move + p2
+                    pointer += 6
+
+        # write string into file
+        sgf_file = open(f'logs/go/Game_History/Iteration {iteration}_Games_{self.args.datetime}.sgf', 'a')
+        sgf_file.write(self.sgf_output)
+        sgf_file.close()
+
+    def search_sgf_string(self, ptr, move_to_add):
+        # each move is 6 characters unless it is a passing move, then it is 4 characters
+
+        move_char_count = 6
+
+        if move_to_add.find("[]") != -1:
+            # move_to_add is a passing move
+            move_char_count = 4
+
+        move_at_ptr = self.sgf_output[ptr:ptr + move_char_count]
+
+        if move_at_ptr[0] == '(':
+            # move_at_ptr is part of a branch declaration
+            # search again without branch declaration
+            return self.search_sgf_string(ptr + 1, move_to_add)
+
+        # do the moves match?
+        if move_to_add == move_at_ptr:
+            # yes, moves match
+            # search again with a new move_to_add
+            return ptr + move_char_count, True
+
+        else:
+            # no, moves do not match
+
+            # if at beginning of branch
+            # jump to next branch at same level
+            if self.sgf_output[ptr - 1] == '(':
+
+                idx_left_paren = self.sgf_output.find('(', ptr)
+                idx_right_paren = self.sgf_output.find(')', ptr)
+
+                if idx_left_paren == -1:
+                    # left paren '(' does not exist in substring
+                    # make branch at end of output string
+                    ptr = len(self.sgf_output) - 1
+                    p1 = self.sgf_output
+
+                    # add the move itself
+                    branch = f'({move_to_add})'
+                    self.sgf_output = p1 + branch
+
+                    return ptr + move_char_count + 2, False
+
+                # looking for ')(' pattern
+                while idx_right_paren > idx_left_paren:
+                    ptr = idx_right_paren
+                    idx_left_paren = self.sgf_output.find('(', ptr)
+                    idx_right_paren = self.sgf_output.find(')', ptr)
+
+                return self.search_sgf_string(idx_left_paren, move_to_add)
+
+            else:
+                # move_at_ptr is not the first move of a branch
+                # make a new branch
+
+                # add a ")" before adding the move
+                idx_of_next_paren = self.sgf_output.find(')', ptr)
+                p1 = self.sgf_output[:idx_of_next_paren]
+                p2 = self.sgf_output[idx_of_next_paren:]
+                self.sgf_output = p1 + ")" + p2
+
+                # add the move itself
+                p1 = self.sgf_output[:ptr]
+                p2 = self.sgf_output[ptr:]
+                branch = f'({move_to_add})('
+                self.sgf_output = p1 + branch + p2
+
+                return ptr + move_char_count + 1, False
+
+    def end_sgf_file_for_game(self, iteration, games):
+        sgf_file = open(f'logs/go/Game_History/Iteration {iteration}_Games_{self.args.datetime}.sgf', 'a')
+        sgf_file.write(f'\n\nC[Unformatted Log of Games: \n{games}\n]\n\n)')
+        sgf_file.close()
