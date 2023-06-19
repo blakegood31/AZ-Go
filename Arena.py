@@ -162,7 +162,7 @@ class Arena:
                 draws += 1
 
             # bookkeeping + plot progress
-            self.game_num += 1
+
             eps_time.update(time.time() - end)
             end = time.time()
             bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(
@@ -172,6 +172,8 @@ class Arena:
                 total=bar.elapsed_td,
                 eta=bar.eta_td)
             bar.next()
+
+            self.game_num += 1
 
         bar.finish()
 
