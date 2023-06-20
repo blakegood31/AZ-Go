@@ -1,3 +1,4 @@
+import math
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
@@ -65,6 +66,18 @@ class Coach:
             # get information about previous state
             obs, reward, termination, truncation, info = episode_env.last()
             canonical_form = self.game.get_pz_canonical_form(self.args['board_size'], obs)
+
+            # end game if too many moves have been played
+            # equation roughly translates max moves to:
+            # 5x5 = 120 moves
+            # 7x7 = 173 moves
+            # 9x9 = 227 moves
+            # 19x19 = 498 moves
+            if episode_step > 17651 * math.e**(0.0015 * self.game.getBoardSize()[0]) - 17664:
+                reward = -0.0001
+                print("maximum number of moves reached, game terminating...")
+                return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
+
             # temp reward instead of termination // truncation
             # in case of infinitely long game
             if reward != 0:
