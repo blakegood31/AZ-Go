@@ -118,9 +118,9 @@ class MCTS:
                     assert (valids[_] > 0)
 
             # debug
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
+            # end_time = time.time()
+            # elapsed_time = end_time - start_time
+            # print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
 
             return probs
 
@@ -132,9 +132,9 @@ class MCTS:
                 assert (valids[_] > 0)
 
         # debug
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
+        # end_time = time.time()
+        # elapsed_time = end_time - start_time
+        # print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
 
         return probs * valids
 

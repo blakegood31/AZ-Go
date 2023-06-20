@@ -122,7 +122,7 @@ class Coach:
             # current player is the player who is about to play next
             episode_env.step(action)
             score = episode_env.unwrapped._go.score()
-            print("Current Score = ", score)
+            # print("Current Score = ", score)
             if self.display == 2:
                 print(
                     f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
@@ -145,6 +145,8 @@ class Coach:
 
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
+                print('###########################ITER:{}###########################'.format(str(i)))
+
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
                 if self.display == 1:

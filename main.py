@@ -35,7 +35,7 @@ args = dotdict({
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.DISPLAY_BOARD,
+    'display': Display.NO_DISPLAY,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
     'board_size': BoardSize,
     'by_score': 0.5 * (BoardSize * BoardSize + komi)
