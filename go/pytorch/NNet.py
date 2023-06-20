@@ -30,7 +30,6 @@ args = dotdict({
     'lr': 0.001,
     'dropout': 0.3,
     'epochs': 10,
-    'batch_size': 64,
     'cuda': torch.cuda.is_available(),
     'num_channels': 512,
 })
@@ -68,6 +67,12 @@ class NNetWrapper(NeuralNet):
             'V_LOSS': []
         }
 
+        # dynamically change the batch size as the number of training examples increases
+        batch_size = 64 * round((len(examples) / 100) / 64)
+        if batch_size < 64:
+            batch_size = 64
+        print(f'Batch size for training: {batch_size}')
+
         for epoch in range(args.epochs):
             print('EPOCH ::: ' + str(epoch + 1))
             trainLog['EPOCH'].append(epoch)
@@ -78,11 +83,11 @@ class NNetWrapper(NeuralNet):
             v_losses = AverageMeter()
             end = time.time()
 
-            bar = Bar('Training Net', max=int(len(examples) / args.batch_size))
+            bar = Bar('Training Net', max=int(len(examples) / batch_size))
             batch_idx = 0
 
-            while batch_idx < int(len(examples) / args.batch_size):
-                sample_ids = np.random.randint(len(examples), size=args.batch_size)
+            while batch_idx < int(len(examples) / batch_size):
+                sample_ids = np.random.randint(len(examples), size=batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                 boards = torch.FloatTensor(np.array(boards).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
@@ -120,7 +125,7 @@ class NNetWrapper(NeuralNet):
                 # plot progress
                 bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f}'.format(
                     batch=batch_idx,
-                    size=int(len(examples) / args.batch_size),
+                    size=int(len(examples) / batch_size),
                     data=data_time.avg,
                     bt=batch_time.avg,
                     total=bar.elapsed_td,
