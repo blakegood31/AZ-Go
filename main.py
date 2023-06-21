@@ -11,9 +11,8 @@ sys.setrecursionlimit(5000)
 
 
 class Display(IntEnum):
-    NO_DISPLAY = 0
-    DISPLAY_BAR = 1
-    DISPLAY_BOARD = 2
+    DISPLAY_BAR = 0
+    DISPLAY_BOARD = 1
 
 
 BoardSize = 7
@@ -35,7 +34,7 @@ args = dotdict({
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.NO_DISPLAY,
+    'display': Display.DISPLAY_BAR,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
     'board_size': BoardSize,
     'by_score': 0.5 * (BoardSize * BoardSize + komi)

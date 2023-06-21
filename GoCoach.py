@@ -81,18 +81,19 @@ class Coach:
             # temp reward instead of termination // truncation
             # in case of infinitely long game
             if reward != 0:
-                if agent == 'black_0' and reward == 1:
-                    print("Black Won!")
-                elif agent == 'white_0' and reward == 1:
-                    print("White Won!")
-                elif agent == 'black_0' and reward == -1:
-                    print("White Won!")
-                elif agent == 'white_0' and reward == -1:
-                    print("Black Won!")
-                else:
-                    print("Ended Early")
+                if self.display == 1:
+                    if agent == 'black_0' and reward == 1:
+                        print("Black Won!")
+                    elif agent == 'white_0' and reward == 1:
+                        print("White Won!")
+                    elif agent == 'black_0' and reward == -1:
+                        print("White Won!")
+                    elif agent == 'white_0' and reward == -1:
+                        print("Black Won!")
+                    else:
+                        print("Ended Early")
 
-                print("Episode Complete\n")
+                    print("Episode Complete\n")
                 episode_env.close()
 
                 return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
@@ -100,12 +101,13 @@ class Coach:
             # End game if a player is winning by certain threshold
             score = episode_env.unwrapped._go.score()
             if ((score > self.args['by_score']) or (score < -self.args['by_score'])) and episode_step > 14:
-                reward = 0
                 if score > 0:
-                    print("Black Won! By Score: ", score)
+                    if self.display == 1:
+                        print("Black Won! By Score: ", score)
                     reward = 1
                 else:
-                    print("White Won! By Score: ", score)
+                    if self.display == 1:
+                        print("White Won! By Score: ", score)
                     reward = -1
                 return [(x[0], x[2], reward * ((-1) ** (x[1] != episode_env.agent_selection))) for x in train_examples]
 
@@ -117,17 +119,16 @@ class Coach:
                 train_examples.append([b, episode_env.agent_selection, p, None])
 
             action = np.random.choice(len(pi), p=pi)
-            # print("Player: ", episode_env.agent_selection, "  Chose action: ", action)
-            # print board state and useful information
-            # current player is the player who is about to play next
             episode_env.step(action)
-            score = episode_env.unwrapped._go.score()
-            # print("Current Score = ", score)
-            if self.display == 2:
+
+            # display additional information
+            if self.display == 1:
                 print(
                     f"================Episode {self.currentEpisode} Step:{episode_step}=====Next Player:{agent}==========")
 
                 self.game.display_pz_board(board_size=self.args['board_size'], observation=obs, agent=agent)
+                score = episode_env.unwrapped._go.score()
+                print("Current Score = ", score)
 
     def learn(self):
         """
@@ -149,8 +150,8 @@ class Coach:
 
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
-                if self.display == 1:
-                    bar = Bar('Self Play', max=self.args.numEps)
+
+                bar = Bar('Self Play', max=self.args.numEps)
                 end = time.time()
 
                 for eps in range(self.args.numEps):
@@ -163,14 +164,13 @@ class Coach:
                     eps_time.update(time.time() - end)
                     end = time.time()
 
-                    if self.display == 1:
-                        bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                    bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
                             eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
                             total=bar.elapsed_td, eta=bar.eta_td)
-                        bar.next()
+                    bar.next()
 
-                if self.display == 1:
-                    bar.finish()
+
+                bar.finish()
 
                 # save the iteration examples to the history
                 self.trainExamplesHistory.append(iterationTrainExamples)

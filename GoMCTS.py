@@ -43,7 +43,7 @@ class MCTS:
         """
 
         # print('current sim numbers:{}'.format(max(self.args.numMCTSSims,self.smartSimNum)))
-        start_time = time.time()
+        # start_time = time.time()
 
         for i in range(max(self.args.numMCTSSims, self.smartSimNum)):
 
@@ -117,7 +117,7 @@ class MCTS:
                 if probs[_] > 0:
                     assert (valids[_] > 0)
 
-            # debug
+            # debug, time elapsed for get action prob
             # end_time = time.time()
             # elapsed_time = end_time - start_time
             # print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))
@@ -131,7 +131,7 @@ class MCTS:
             if probs[_] > 0:
                 assert (valids[_] > 0)
 
-        # debug
+        # debug, time elapsed for get action prob
         # end_time = time.time()
         # elapsed_time = end_time - start_time
         # print("Elapsed time for get action prob: {:.2f} seconds".format(elapsed_time))

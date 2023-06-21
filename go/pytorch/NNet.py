@@ -74,7 +74,7 @@ class NNetWrapper(NeuralNet):
         print(f'Batch size for training: {batch_size}')
 
         for epoch in range(args.epochs):
-            print('EPOCH ::: ' + str(epoch + 1))
+            # print('EPOCH ::: ' + str(epoch + 1))
             trainLog['EPOCH'].append(epoch)
             self.nnet.train()
             data_time = AverageMeter()
@@ -83,7 +83,7 @@ class NNetWrapper(NeuralNet):
             v_losses = AverageMeter()
             end = time.time()
 
-            bar = Bar('Training Net', max=int(len(examples) / batch_size))
+            bar = Bar('Training Network', max=int(len(examples) / batch_size))
             batch_idx = 0
 
             while batch_idx < int(len(examples) / batch_size):
@@ -123,7 +123,8 @@ class NNetWrapper(NeuralNet):
                 batch_idx += 1
 
                 # plot progress
-                bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f}'.format(
+                bar.suffix = '({batch}/{size}) Epoch: {epoch:} | Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f} | Batch_size: {batch_size:}'.format(
+                    epoch=epoch + 1,
                     batch=batch_idx,
                     size=int(len(examples) / batch_size),
                     data=data_time.avg,
@@ -132,7 +133,9 @@ class NNetWrapper(NeuralNet):
                     eta=bar.eta_td,
                     lpi=pi_losses.avg,
                     lv=v_losses.avg,
+                    batch_size=batch_size
                 )
+
                 bar.next()
 
             trainLog['P_LOSS'].append(pi_losses.avg)

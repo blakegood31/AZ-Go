@@ -80,8 +80,7 @@ class Arena:
             # End game if a player is winning by certain threshold
             score = arena_env.unwrapped._go.score()
             if ((score > self.by_score) or (score < -self.by_score)) and step > 14: 
-                outcome = 0
-                print("Won by score")
+                #print("Won by score")
                 if self.game_num % 2 == 0:
                     if score > 0:
                         outcome = -1
@@ -123,7 +122,7 @@ class Arena:
             action = np.argmax(moves)
             action_history.append(f";{agent.capitalize()[0]}[{self.game.action_space_to_GTP(action)}]")
 
-            if self.displayValue == 2:
+            if self.displayValue == 1:
                 print(
                     f"================Game {self.game_num} Step:{step}=====Next Player:{current_player_num}==========")
                 self.game.display_pz_board(board_size=self.game.getBoardSize()[0], observation=obs, agent=agent)
@@ -142,7 +141,7 @@ class Arena:
             draws:  games won by nobody
         """
         eps_time = AverageMeter()
-        bar = Bar('Arena.playGames', max=num)
+        bar = Bar('Arena Play', max=num)
         end = time.time()
 
         player_one_wins = 0
