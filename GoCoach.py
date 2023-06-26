@@ -56,7 +56,7 @@ class Coach():
         while True:
 
             episodeStep += 1
-            if self.display == 2:
+            if self.display == 1:
                 print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode, episodeStep,
                                                                                           "White" if self.curPlayer == -1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
@@ -70,18 +70,18 @@ class Coach():
             action = np.random.choice(len(pi), p=pi)
 
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
-            if self.display == 2:
+            if self.display == 1:
                 print("BOARD updated:")
                 # display(board)
                 print(display(board))
             r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
             if r != 0:
-                if self.display == 2:
+                if self.display == 1:
                     print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
                                                                                         score[0], score[1]))
 
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
-            elif r == 0 and self.display == 2:
+            elif r == 0 and self.display == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
 
 
@@ -99,18 +99,11 @@ class Coach():
         for i in range(1, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
             # bookkeeping
-            print('###########################ITER:{}###########################'.format(str(i)))
-            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.args.datetime}.txt', 'a')
-            arena_log.write("##########################################\n")
-            arena_log.write("ITERATION: " + str(i) + "\n")
-            arena_log.write("##########################################\n\n")
-            arena_log.close()
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
                 iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
-                if self.display == 1:
-                    bar = Bar('Self Play', max=self.args.numEps)
+                bar = Bar('Self Play', max=self.args.numEps)
                 end = time.time()
 
                 for eps in range(self.args.numEps):
@@ -123,13 +116,12 @@ class Coach():
                     eps_time.update(time.time() - end)
                     end = time.time()
 
-                    if self.display == 1:
-                        bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                    bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
                             eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
                             total=bar.elapsed_td, eta=bar.eta_td)
-                        bar.next()
-                if self.display == 1:
-                    bar.finish()
+                    bar.next()
+
+                bar.finish()
 
                 # save the iteration examples to the history
                 self.trainExamplesHistory.append(iterationTrainExamples)
@@ -137,6 +129,7 @@ class Coach():
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
                 self.trainExamplesHistory.pop(0)
+
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
@@ -165,7 +158,7 @@ class Coach():
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                           lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime, display=display,
                           displayValue=self.display.value)
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare, iter=i)
+            pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
@@ -180,6 +173,7 @@ class Coach():
 
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
+            self.create_sgf_files_for_games(games=outcomes, iteration=i)
             self.saveTrainingPlots()
 
         pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
@@ -243,3 +237,22 @@ class Coach():
         plt.plot(self.winRate, 'r', label='Win Rate')
 
         plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")
+
+    def create_sgf_files_for_games(self, games, iteration):
+
+        for game_idx in range(len(games)):
+            file_name = f'logs/go/Game_History/Iteration {iteration}, Game {game_idx + 1} {self.args.datetime}.sgf'
+            sgf_file = open(file_name, 'w')
+            sgf_file.close()
+
+            sgf_file = open(file_name, 'a')
+            sgf_file.write(
+                f"(;\nEV[AlphaGo Self-Play]\nGN[Iteration {iteration}]\nDT[{self.args.datetime}]\nPB[TCU_AlphaGo]\nPW[TCU_AlphaGo]"
+                f"\nSZ[{self.game.getBoardSize()[0]}]\nRU["
+                f"Chinese]\n\n")
+
+            for move_idx in range(len(games[game_idx])):
+                sgf_file.write(games[game_idx][move_idx])
+
+            sgf_file.write("\n)")
+            sgf_file.close()

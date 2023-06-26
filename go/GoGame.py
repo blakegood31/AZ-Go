@@ -138,6 +138,20 @@ class GoGame(Game):
         # 8x8 numpy array (canonical board)
         return np.array(board.pieces).tostring()
 
+    def action_space_to_GTP(self, action):
+        # supports up to 26 x 26 boards
+        coords = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+                  'u', 'v', 'w', 'x', 'y', 'z']
+
+        if action == self.getBoardSize()[0] ** 2:
+            return f''
+
+        # x coord = action / board_size
+        # y coord = action % board_size
+
+        # return column + row (in form: 'aa', 'df', 'cd', etc.)
+        return f'{coords[int(action / self.getBoardSize()[0])]}' + f'{coords[int(action % self.getBoardSize()[0])]}'
+
 
 def display(board):
     state = ""

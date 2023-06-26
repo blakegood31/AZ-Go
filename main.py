@@ -10,33 +10,31 @@ sys.setrecursionlimit(5000)
 
 
 class Display(IntEnum):
-    NO_DISPLAY = 0
-    DISPLAY_BAR = 1
-    DISPLAY_BOARD = 2
+    DISPLAY_BAR = 0
+    DISPLAY_BOARD = 1
 
 
-BoardSize = 7
+BoardSize = 5
 NetType = 'CNN'  # or 'RES'
 tag = 'MCTS_SimModified'
 
 
 args = dotdict({
-    'numIters': 1000,
-    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
+    'numIters': 1,
+    'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
     'numMCTSSims': 200,         # Number of games moves for MCTS to simulate.
-    'arenaCompare': 50,         # Number of games to play during arena play to determine if new net will be accepted.
+    'arenaCompare': 2,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.NO_DISPLAY,
+    'display': Display.DISPLAY_BOARD,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
 })
-
 if args.load_model:
     checkpoint_dir = f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/'
     checkpoint_files = [file for file in os.listdir(checkpoint_dir) if file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
@@ -44,7 +42,6 @@ if args.load_model:
     args['load_folder_file'] = [f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/', latest_checkpoint]
 
 if __name__ == "__main__":
-
     g = Game(BoardSize)
     nnet = nn(g, t=NetType)
 
@@ -54,7 +51,7 @@ if __name__ == "__main__":
     except:
         pass
 
-    game_path = './logs/go/Game_Histories'
+    game_path = './logs/go/Game_History'
     try:
         os.makedirs(game_path)
     except:
@@ -66,24 +63,12 @@ if __name__ == "__main__":
     except:
         pass
 
-    # write header of Game_History.txt file
-    arena_log = open(f'logs/go/Game_Histories/Game_History_{args.datetime}.txt', 'w')
-    arena_log.write("############################################################\n")
-    arena_log.write("This file contains visual representations of the game\n")
-    arena_log.write("boards when pitting the current model against itself.\n\n")
-    arena_log.write("Specific games and iterations can be found by searching\n")
-    arena_log.write("the text file for g{game #}i{iteration #}.\n")
-    arena_log.write("Example: Game 1 in Iteration 2 -- g1i2\n\n")
-    arena_log.write(f"Data collected during training on {args.datetime}" + "\n\n")
-    arena_log.write("Player 1 is the current model; player -1 is the previous model.\n\n")
-    arena_log.write("Total number of iterations: " + str(args['numIters']) + "\n")
-    arena_log.write("Number of episodes per iteration: " + str(args['numEps']) + "\n")
-    arena_log.write("Number of MCTS simulations: " + str(args['numMCTSSims']) + "\n")
-    arena_log.write("Number of arena compares: " + str(args['arenaCompare']) + "\n")
-    arena_log.write("############################################################\n\n")
-    arena_log.close()
-
     if args.load_model:
+        # if you are loading a checkpoint created from a model without DataParallel
+        # use the load_checkpoint_from_plain_to_parallel() function
+        # instead of the load_checkpoint() function
+        nnet.load_checkpoint_from_plain_to_parallel(args.checkpoint, 'best.pth.tar')
+
         nnet.load_checkpoint(args.checkpoint, 'best.pth.tar')
 
     c = Coach(g, nnet, args, log=True, logPath=logPath)
@@ -93,8 +78,3 @@ if __name__ == "__main__":
         c.loadTrainExamples()
 
     c.learn()
-
-    arena_log = open(f'logs/go/Game_Histories/Game_History_{args.datetime}.txt', 'a')
-    time_completed = datetime.now().strftime("%d-%m-%Y %H:%M")
-    arena_log.write(f"Training completed at: {time_completed}")
-    arena_log.close()

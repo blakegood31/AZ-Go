@@ -1,7 +1,11 @@
 import os
 import time
+from collections import OrderedDict
+
 import numpy as np
 import sys
+
+from torch import nn
 
 sys.path.append('../../')
 
@@ -26,7 +30,6 @@ args = dotdict({
     'lr': 0.001,
     'dropout': 0.3,
     'epochs': 10,
-    'batch_size': 64,
     'cuda': torch.cuda.is_available(),
     'num_channels': 512,
 })
@@ -42,6 +45,10 @@ class NNetWrapper(NeuralNet):
             self.nnet = netMkr.makeNet()
         else:
             self.nnet = GoNNet(game, args)
+            self.nnet = nn.DataParallel(self.nnet)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.nnet.to(device)
+
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
@@ -60,8 +67,13 @@ class NNetWrapper(NeuralNet):
             'V_LOSS': []
         }
 
+        # dynamically change the batch size as the number of training examples increases
+        batch_size = 64 * round((len(examples) / 100) / 64)
+        if batch_size < 64:
+            batch_size = 64
+
         for epoch in range(args.epochs):
-            print('EPOCH ::: ' + str(epoch + 1))
+            # print('EPOCH ::: ' + str(epoch + 1))
             trainLog['EPOCH'].append(epoch)
             self.nnet.train()
             data_time = AverageMeter()
@@ -70,11 +82,11 @@ class NNetWrapper(NeuralNet):
             v_losses = AverageMeter()
             end = time.time()
 
-            bar = Bar('Training Net', max=int(len(examples) / args.batch_size))
+            bar = Bar('Training Network', max=int(len(examples) / batch_size))
             batch_idx = 0
 
-            while batch_idx < int(len(examples) / args.batch_size):
-                sample_ids = np.random.randint(len(examples), size=args.batch_size)
+            while batch_idx < int(len(examples) / batch_size):
+                sample_ids = np.random.randint(len(examples), size=batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                 boards = torch.FloatTensor(np.array(boards).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
@@ -110,16 +122,19 @@ class NNetWrapper(NeuralNet):
                 batch_idx += 1
 
                 # plot progress
-                bar.suffix = '({batch}/{size}) Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f}'.format(
+                bar.suffix = '({batch}/{size}) Epoch: {epoch:} | Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f} | Batch_size: {batch_size:}'.format(
+                    epoch=epoch + 1,
                     batch=batch_idx,
-                    size=int(len(examples) / args.batch_size),
+                    size=int(len(examples) / batch_size),
                     data=data_time.avg,
                     bt=batch_time.avg,
                     total=bar.elapsed_td,
                     eta=bar.eta_td,
                     lpi=pi_losses.avg,
                     lv=v_losses.avg,
+                    batch_size=batch_size
                 )
+
                 bar.next()
 
             trainLog['P_LOSS'].append(pi_losses.avg)
@@ -169,3 +184,15 @@ class NNetWrapper(NeuralNet):
             raise BaseException("No model in path {}".format(filepath))
         checkpoint = torch.load(filepath)
         self.nnet.load_state_dict(checkpoint['state_dict'])
+
+    def load_checkpoint_from_plain_to_parallel(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):
+        filepath = os.path.join(folder, filename)
+        checkpoint = torch.load(filepath)
+        state_dict = checkpoint['state_dict']
+
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = "module." + k  # add 'module.' of dataparallel, so it works with examples from plain model
+            new_state_dict[name] = v
+
+        self.nnet.load_state_dict(new_state_dict)

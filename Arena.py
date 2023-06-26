@@ -40,24 +40,20 @@ class Arena():
         curPlayer = 1
         board = self.game.getInitBoard()
         it = 0
+        action_history = []
         while self.game.getGameEnded(board, curPlayer) == 0:
             it += 1
             if verbose:
                 score = self.game.getScore(board)
-                arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
-                arena_log.write("Turn: " + str(it) + "   Player: " + str(curPlayer) + "\n")
-                arena_log.write(self.display(board))
-                arena_log.write(f"\nCurrent score: b {score[0]}, W {score[1]}\n")
-                arena_log.write("\n\n")
-                arena_log.close()
 
-                # assert(self.display)
-                if self.displayValue == 2:
+                if self.displayValue == 1:
                     print("\nTurn ", str(it), "Player ", str(curPlayer))
                     print(self.display(board))
                     print(f"Current score: b {score[0]}, W {score[1]}")
 
             action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer))
+            player_name = "B" if curPlayer == 1 else "W"
+            action_history.append(f";{player_name}[{self.game.action_space_to_GTP(action)}]")
 
             valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
 
@@ -70,24 +66,13 @@ class Arena():
             # assert(self.display)
             r, score = self.game.getGameEnded(board, 1, returnScore=True)
 
-            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
-            arena_log.write(
-                "## Game over: Turn " + str(it) + " Result " + str(self.game.getGameEnded(board, 1)) + " ##\n")
-            arena_log.write("Final Board Configuration: \n")
-            arena_log.write(self.display(board))
-            arena_log.write(f"\nFinal score: b (previous model) {score[0]}, W (current model) {score[1]}\n\n\n")
-            arena_log.close()
-
-            # print at arena game end
-            # print(f"Num of Turns: {len(board.history)}\n")
-
-            if self.displayValue == 2:
+            if self.displayValue == 1:
                 print("\nGame over: Turn ", str(it), "Result ", str(r))
                 print(self.display(board))
                 print(f"Final score: b {score[0]}, W {score[1]}\n")
-        return self.game.getGameEnded(board, 1)
+        return self.game.getGameEnded(board, 1), action_history
 
-    def playGames(self, num, iter, verbose=True):
+    def playGames(self, num, verbose=True):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
         num/2 games.
@@ -108,14 +93,12 @@ class Arena():
         oneWon = 0
         twoWon = 0
         draws = 0
-        for _ in range(num):
-            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
-            arena_log.write("#############################\n")
-            arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
-            arena_log.write("#############################\n\n")
-            arena_log.close()
 
-            gameResult = self.playGame(verbose=verbose)
+        outcomes = []
+
+        for _ in range(num):
+            gameResult, action_history = self.playGame(verbose=verbose)
+            outcomes.append(action_history)
             if gameResult == 1:
                 oneWon += 1
             elif gameResult == -1:
@@ -136,13 +119,8 @@ class Arena():
             num += 1
 
         for _ in range(num):
-            arena_log = open(f'logs/go/Game_Histories/Game_History_{self.datetime}.txt', 'a')
-            arena_log.write("#############################\n")
-            arena_log.write("Playing Game #" + str(eps + 1) + "  (g" + str(eps + 1) + "i" + str(iter) + ")\n")
-            arena_log.write("#############################\n\n")
-            arena_log.close()
-           
             gameResult = self.playGame(verbose=verbose)
+            outcomes.append(action_history)
             if gameResult == -1:
                 oneWon += 1
             elif gameResult == 1:
@@ -162,4 +140,4 @@ class Arena():
 
         bar.finish()
 
-        return oneWon, twoWon, draws
+        return oneWon, twoWon, draws, outcomes
