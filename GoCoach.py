@@ -11,9 +11,6 @@ from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from multiprocessing import Pool
-import itertools
-
 
 class Coach():
     """
@@ -91,20 +88,18 @@ class Coach():
             elif r == 0 and self.display == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
 
-    def append_result(self, result):
+    def append_eps_result(self, result):
         self.trainExamplesHistory.append(result)
-        print("Result Added.")
+        # print("Result Added.")
 
     def learn(self):
         """
         Performs numIters iterations with numEps episodes of self-play in each
         iteration. After every iteration, it retrains neural network with
-        examples in trainExamples (which has a maximium length of maxlenofQueue).
+        examples in trainExamples (which has a maximum length of maxlenofQueue).
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
-        num_processes = 4
-
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
 
         for i in range(1, self.args.numIters + 1):
@@ -115,21 +110,28 @@ class Coach():
                 self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
                 bar = Bar('Self Play', max=self.args.numEps)
+                end = time.time()
 
-                for eps in range(int(self.args.numEps / num_processes)):
-                    with multiprocessing.Pool(num_processes) as pool:
+                for eps in range(int(self.args.numEps / self.args.num_processes)):
+                    # bookkeeping + plot progress
+                    eps_time.update(time.time() - end)
+                    end = time.time()
 
-                        for _ in range(num_processes):
-                            pool.apply_async(self.executeEpisode, callback=self.append_result)
+                    with multiprocessing.Pool(self.args.num_processes) as pool:
+
+                        for _ in range(self.args.num_processes):
+                            pool.apply_async(self.executeEpisode, callback=self.append_eps_result)
 
                         pool.close()
                         pool.join()
 
-                    bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(
-                        eps=(eps + 1) * num_processes, maxeps=self.args.numEps, et=eps_time.avg,
-                        total=bar.elapsed_td, eta=bar.eta_td)
-
-                    bar.next()
+                    # increment bar
+                    for k in range(self.args.num_processes):
+                        bar.suffix = f'{eps * self.args.num_processes + k + 1}/{self.args.numEps} ' \
+                                     f'Eps Time: {bar.elapsed_td / (eps + 1)}s ' \
+                                     f'| Total: {bar.elapsed_td}' \
+                                     f'| ETA: {(bar.elapsed_td / (eps + 1)) / self.args.num_processes * (self.args.numEps - eps)}'
+                        bar.next()
 
                 bar.finish()
 
