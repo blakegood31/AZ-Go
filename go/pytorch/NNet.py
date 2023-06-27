@@ -34,7 +34,7 @@ args = dotdict({
     'num_channels': 512,
 })
 
-print(args)
+# print(args)
 
 
 class NNetWrapper(NeuralNet):

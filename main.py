@@ -5,6 +5,7 @@ from utils import *
 import os, sys
 from enum import IntEnum
 from datetime import datetime
+import torch.multiprocessing as mp
 
 sys.setrecursionlimit(5000)
 
@@ -21,7 +22,7 @@ tag = 'MCTS_SimModified'
 
 args = dotdict({
     'numIters': 1,
-    'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 8,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
@@ -32,7 +33,7 @@ args = dotdict({
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
     'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.DISPLAY_BOARD,
+    'display': Display.DISPLAY_BAR,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
 })
 if args.load_model:
@@ -42,6 +43,8 @@ if args.load_model:
     args['load_folder_file'] = [f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/', latest_checkpoint]
 
 if __name__ == "__main__":
+    mp.set_start_method('spawn')
+
     g = Game(BoardSize)
     nnet = nn(g, t=NetType)
 

@@ -1,3 +1,4 @@
+import multiprocessing
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
@@ -9,6 +10,9 @@ from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
+
+from multiprocessing import Pool
+import itertools
 
 
 class Coach():
@@ -50,40 +54,46 @@ class Coach():
                            the player eventually won the game, else -1.
         """
         trainExamples = []
-        board = self.game.getInitBoard()
-        self.curPlayer = 1
+        game = self.game
+        board = game.getInitBoard()
+        curPlayer = 1
         episodeStep = 0
-        while True:
+        mcts = MCTS(game, self.nnet, self.args)
 
+        while True:
             episodeStep += 1
             if self.display == 1:
-                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode, episodeStep,
-                                                                                          "White" if self.curPlayer == -1 else "Black"))
-            canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
+                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode,
+                                                                                             episodeStep,
+                                                                                             "White" if curPlayer == -1 else "Black"))
+            canonicalBoard = game.getCanonicalForm(board, curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
+            pi = mcts.getActionProb(canonicalBoard, temp=temp)
             # get different symmetries/rotations of the board
-            sym = self.game.getSymmetries(canonicalBoard, pi)
+            sym = game.getSymmetries(canonicalBoard, pi)
             for b, p in sym:
-                trainExamples.append([b, self.curPlayer, p, None])
+                trainExamples.append([b, curPlayer, p, None])
             action = np.random.choice(len(pi), p=pi)
 
-            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
+            board, curPlayer = game.getNextState(board, curPlayer, action)
             if self.display == 1:
                 print("BOARD updated:")
                 # display(board)
                 print(display(board))
-            r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
+            r, score = game.getGameEnded(board.copy(), curPlayer, returnScore=True)
             if r != 0:
                 if self.display == 1:
                     print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
                                                                                         score[0], score[1]))
 
-                return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
+                return [(x[0], x[2], r * ((-1) ** (x[1] != curPlayer))) for x in trainExamples]
             elif r == 0 and self.display == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
 
+    def append_result(self, result):
+        self.trainExamplesHistory.append(result)
+        print("Result Added.")
 
     def learn(self):
         """
@@ -93,6 +103,7 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
+        num_processes = 4
 
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
 
@@ -101,30 +112,48 @@ class Coach():
             # bookkeeping
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > 1:
-                iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
                 bar = Bar('Self Play', max=self.args.numEps)
-                end = time.time()
 
-                for eps in range(self.args.numEps):
-                    # print("{}th Episode:".format(eps+1))
-                    self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-                    self.currentEpisode = eps + 1
-                    iterationTrainExamples += self.executeEpisode()
+                for eps in range(int(self.args.numEps / num_processes)):
+                    with multiprocessing.Pool(num_processes) as pool:
 
-                    # bookkeeping + plot progress
-                    eps_time.update(time.time() - end)
-                    end = time.time()
+                        for _ in range(num_processes):
+                            pool.apply_async(self.executeEpisode, callback=self.append_result)
 
-                    bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                            eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
-                            total=bar.elapsed_td, eta=bar.eta_td)
+                        pool.close()
+                        pool.join()
+
+                    bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(
+                        eps=(eps + 1) * num_processes, maxeps=self.args.numEps, et=eps_time.avg,
+                        total=bar.elapsed_td, eta=bar.eta_td)
+
                     bar.next()
 
                 bar.finish()
 
+                # for eps in range(self.args.numEps):
+                #     # print("{}th Episode:".format(eps+1))
+                #     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
+                #     self.currentEpisode = eps + 1
+                #
+                #     iterationTrainExamples += self.executeEpisode()
+                #
+                #     # bookkeeping + plot progress
+                #     eps_time.update(time.time() - end)
+                #     end = time.time()
+                #
+                    # bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                    #     eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
+                    #     total=bar.elapsed_td, eta=bar.eta_td)
+                    # bar.next()
+                #
+                # bar.finish()
+
+
                 # save the iteration examples to the history
-                self.trainExamplesHistory.append(iterationTrainExamples)
+                # self.trainExamplesHistory.append(iterationTrainExamples)
 
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
@@ -156,7 +185,8 @@ class Coach():
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime, display=display,
+                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime,
+                          display=display,
                           displayValue=self.display.value)
             pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
@@ -192,7 +222,7 @@ class Coach():
 
     def loadTrainExamples(self):
         modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
-        examplesFile = modelFile #+ ".examples"
+        examplesFile = modelFile  # + ".examples"
         if not os.path.isfile(examplesFile):
             print(examplesFile)
             r = input("File with trainExamples not found. Continue? [y|n]")
