@@ -1,13 +1,18 @@
+import multiprocessing
+
 import numpy as np
+
+from go.GoGame import GoGame as Game
 from pytorch_classification.utils import Bar, AverageMeter
 import time
+
 
 class Arena():
     """
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game, datetime, display=None, displayValue=0):
+    def __init__(self, game, datetime, display=1, displayValue=0, num_processes=1, board_size=7):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -19,14 +24,19 @@ class Arena():
         see othello/OthelloPlayers.py for an example. See pit.py for pitting
         human players/other baselines with each other.
         """
-        self.player1 = player1
-        self.player2 = player2
         self.game = game
         self.display = display
         self.displayValue = displayValue
         self.datetime = datetime
+        self.num_processes = num_processes
+        self.board_size = board_size
 
-    def playGame(self, verbose=True):
+        self.outcomes = []
+        self.oneWon = 0
+        self.twoWon = 0
+        self.draws = 0
+
+    def playGame(self, pmcts, nmcts):
         """
         Executes one episode of a game.
 
@@ -36,43 +46,61 @@ class Arena():
             or
                 draw result returned from the game that is neither 1, -1, nor 0.
         """
-        players = [self.player2, None, self.player1]
+        player1 = lambda x: np.argmax(pmcts.getActionProb(x, temp=0))
+        player2 = lambda x: np.argmax(nmcts.getActionProb(x, temp=0))
+        players = [player2, None, player1]
         curPlayer = 1
-        board = self.game.getInitBoard()
+        game = Game(self.board_size)
+        board = game.getInitBoard()
         it = 0
         action_history = []
-        while self.game.getGameEnded(board, curPlayer) == 0:
+        verbose = True
+        while game.getGameEnded(board, curPlayer) == 0:
             it += 1
             if verbose:
-                score = self.game.getScore(board)
+                score = game.getScore(board)
 
                 if self.displayValue == 1:
                     print("\nTurn ", str(it), "Player ", str(curPlayer))
                     print(self.display(board))
                     print(f"Current score: b {score[0]}, W {score[1]}")
 
-            action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer))
+            action = players[curPlayer + 1](game.getCanonicalForm(board, curPlayer))
             player_name = "B" if curPlayer == 1 else "W"
-            action_history.append(f";{player_name}[{self.game.action_space_to_GTP(action)}]")
+            action_history.append(f";{player_name}[{game.action_space_to_GTP(action)}]")
 
-            valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
+            valids = game.getValidMoves(game.getCanonicalForm(board, curPlayer), 1)
 
             if valids[action] == 0:
                 print(action)
                 # assert valids[action] >0
-            board, curPlayer = self.game.getNextState(board, curPlayer, action)
+            board, curPlayer = game.getNextState(board, curPlayer, action)
 
         if verbose:
             # assert(self.display)
-            r, score = self.game.getGameEnded(board, 1, returnScore=True)
+            r, score = game.getGameEnded(board, 1, returnScore=True)
 
             if self.displayValue == 1:
                 print("\nGame over: Turn ", str(it), "Result ", str(r))
                 print(self.display(board))
                 print(f"Final score: b {score[0]}, W {score[1]}\n")
-        return self.game.getGameEnded(board, 1), action_history
 
-    def playGames(self, num, verbose=True):
+        return [game.getGameEnded(board, 1), action_history]
+
+    def handle_completed_game(self, array):
+        game_result = array[0]
+        action_history = array[1]
+        self.outcomes += [action_history]
+
+        if game_result == -1:
+            self.oneWon += 1
+        elif game_result == 1:
+            self.twoWon += 1
+        else:
+            self.draws += 1
+        print("Game Completed.")
+
+    def playGames(self, num, pmcts, nmcts):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
         num/2 games.
@@ -82,62 +110,26 @@ class Arena():
             twoWon: games won by player2
             draws:  games won by nobody
         """
-        eps_time = AverageMeter()
-        bar = Bar('Arena.playGames', max=num)
-        end = time.time()
-        eps = 0
-        maxeps = int(num)
         originalNum = num
-
         num = int(num / 2)
-        oneWon = 0
-        twoWon = 0
-        draws = 0
 
-        outcomes = []
+        for _ in range(int(num / self.num_processes)):
+            with multiprocessing.Pool(self.num_processes) as pool:
+                for _ in range(self.num_processes):
+                    pool.apply_async(self.playGame, args=(pmcts, nmcts,), callback=self.handle_completed_game)
 
-        for _ in range(num):
-            gameResult, action_history = self.playGame(verbose=verbose)
-            outcomes.append(action_history)
-            if gameResult == 1:
-                oneWon += 1
-            elif gameResult == -1:
-                twoWon += 1
-            else:
-                draws += 1
-            # bookkeeping + plot progress
-            eps += 1
-            eps_time.update(time.time() - end)
-            end = time.time()
-            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps, maxeps=maxeps, et=eps_time.avg,
-                                                                                                       total=bar.elapsed_td, eta=bar.eta_td)
-            bar.next()
+                pool.close()
+                pool.join()
 
-        self.player1, self.player2 = self.player2, self.player1
-
-        if(originalNum%2 == 1):
+        if originalNum % 2 == 1:
             num += 1
 
-        for _ in range(num):
-            gameResult = self.playGame(verbose=verbose)
-            outcomes.append(action_history)
-            if gameResult == -1:
-                oneWon += 1
-            elif gameResult == 1:
-                twoWon += 1
-            else:
-                draws += 1
-            # bookkeeping + plot progress
-            eps += 1
-            eps_time.update(time.time() - end)
-            end = time.time()
-            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps,
-                                                                                                       maxeps=maxeps,
-                                                                                                       et=eps_time.avg,
-                                                                                                       total=bar.elapsed_td,
-                                                                                                       eta=bar.eta_td)
-            bar.next()
+        for _ in range(int(num / self.num_processes)):
+            with multiprocessing.Pool(self.num_processes) as pool:
+                for _ in range(self.num_processes):
+                    pool.apply_async(self.playGame, args=(nmcts, pmcts,), callback=self.handle_completed_game)
 
-        bar.finish()
+                pool.close()
+                pool.join()
 
-        return oneWon, twoWon, draws, outcomes
+        return self.oneWon, self.twoWon, self.draws, self.outcomes

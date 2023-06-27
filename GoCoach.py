@@ -135,28 +135,6 @@ class Coach():
 
                 bar.finish()
 
-                # for eps in range(self.args.numEps):
-                #     # print("{}th Episode:".format(eps+1))
-                #     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-                #     self.currentEpisode = eps + 1
-                #
-                #     iterationTrainExamples += self.executeEpisode()
-                #
-                #     # bookkeeping + plot progress
-                #     eps_time.update(time.time() - end)
-                #     end = time.time()
-                #
-                    # bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                    #     eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
-                    #     total=bar.elapsed_td, eta=bar.eta_td)
-                    # bar.next()
-                #
-                # bar.finish()
-
-
-                # save the iteration examples to the history
-                # self.trainExamplesHistory.append(iterationTrainExamples)
-
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
                 self.trainExamplesHistory.pop(0)
@@ -186,11 +164,13 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime,
+            arena = Arena(self.game, self.args.datetime,
                           display=display,
-                          displayValue=self.display.value)
-            pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)
+                          displayValue=self.display.value, num_processes=self.args.num_processes,
+                          board_size=self.game.getBoardSize()[0])
+            # player1 = lambda x: np.argmax(pmcts.getActionProb(x, temp=0))
+            # player2 = lambda x: np.argmax(nmcts.getActionProb(x, temp=0))
+            pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare, pmcts, nmcts)
             self.winRate.append(nwins / self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
