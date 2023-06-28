@@ -194,5 +194,4 @@ class NNetWrapper(NeuralNet):
         for k, v in state_dict.items():
             name = "module." + k  # add 'module.' of dataparallel, so it works with examples from plain model
             new_state_dict[name] = v
-
         self.nnet.load_state_dict(new_state_dict)

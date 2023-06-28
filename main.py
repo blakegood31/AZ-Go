@@ -38,6 +38,8 @@ args = dotdict({
     'numItersForTrainExamplesHistory': 25,
     'display': Display.DISPLAY_BAR,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
+    'board_size': BoardSize,
+    'by_score': 0.5 * (BoardSize * BoardSize + komi)
 })
 if args.load_model:
     checkpoint_dir = f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/'
@@ -47,6 +49,8 @@ if args.load_model:
 
 if __name__ == "__main__":
     mp.set_start_method('spawn')
+
+    start_time = time.time()
 
     g = Game(BoardSize)
     nnet = nn(g, t=NetType)
@@ -82,5 +86,5 @@ if __name__ == "__main__":
     if args.load_model:
         print("Loading trainExamples from file")
         c.loadTrainExamples()
-
+    
     c.learn()

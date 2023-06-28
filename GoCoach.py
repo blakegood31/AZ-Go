@@ -2,17 +2,18 @@ import multiprocessing
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
-from go.GoGame import display
 import numpy as np
+
 from pytorch_classification.utils import Bar, AverageMeter
 import time, os, sys
 from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
+from pettingzoo.classic import go_v5 as go
 
 
-class Coach():
+class Coach:
     """
     This class executes the self-play + learning. It uses the functions defined
     in Game and NeuralNet. args are specified in main.py.
@@ -33,20 +34,21 @@ class Coach():
         self.v_loss_per_iteration = []
         self.winRate = []
         self.currentEpisode = 0
+        self.sgf_output = ""
 
     def executeEpisode(self):
         """
         This function executes one episode of self-play, starting with player 1.
         As the game is played, each turn is added as a training example to
-        trainExamples. The game is played till the game ends. After the game
+        train_examples. The game is played till the game ends. After the game
         ends, the outcome of the game is used to assign values to each example
-        in trainExamples.
+        in train_examples.
 
         It uses a temp=1 if episodeStep < tempThreshold, and thereafter
         uses temp=0.
 
         Returns:
-            trainExamples: a list of examples of the form (canonicalBoard,pi,v)
+            train_examples: a list of examples of the form (canonicalBoard,pi,v)
                            pi is the MCTS informed policy vector, v is +1 if
                            the player eventually won the game, else -1.
         """
@@ -109,6 +111,7 @@ class Coach():
             if not self.skipFirstSelfPlay or i > 1:
                 self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
+
                 bar = Bar('Self Play', max=self.args.numEps)
                 end = time.time()
 
@@ -164,6 +167,7 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
+
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                           lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime,
                           display=display,
@@ -222,7 +226,7 @@ class Coach():
         # close previous graph
         plt.close()
 
-        plt.rcParams["figure.figsize"] = (18, 12)
+        plt.rcParams["figure.figsize"] = (17, 10)
 
         plt.subplot(2, 2, 1)
         plt.title("V Loss During Training")
@@ -245,7 +249,7 @@ class Coach():
         plt.locator_params(axis='x', integer=True, tight=True)
         plt.axhline(y=self.args.updateThreshold, color='b', linestyle='-')
         plt.plot(self.winRate, 'r', label='Win Rate')
-
+        
         plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")
 
     def create_sgf_files_for_games(self, games, iteration):
