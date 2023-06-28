@@ -136,63 +136,14 @@ class GoGame(Game):
 
     def stringRepresentation(self, canonicalForm):
         # 8x8 numpy array (canonical board)
-        return np.array(canonicalForm).tostring()
-
-    def getBoard(self, obs, agent):
-        if agent == 'black_0':
-            zero = 0
-        else:
-            zero = np.copysign(0, -1)
-        canonicalForm = np.zeros((self.getBoardSize()[0], self.getBoardSize()[0]))
-        for i in range(self.getBoardSize()[0]):
-            for j in range(self.getBoardSize()[0]):
-                if obs['observation'][i, j, 0] == 1:
-                    canonicalForm[i, j] = -1
-                elif obs['observation'][i, j, 1] == 1:
-                    canonicalForm[i, j] = 1
-                else:
-                    canonicalForm[i, j] = zero  # Empty intersection
-        return canonicalForm
-
-    def get_pz_canonical_form(self, board_size, observation):
-        canonical_form = np.zeros((board_size, board_size))
-
-        for i in range(board_size):
-            for j in range(board_size):
-                if observation['observation'][i, j, 0] == 1:
-                    canonical_form[i, j] = 1
-                elif observation['observation'][i, j, 1] == 1:
-                    canonical_form[i, j] = -1
-                else:
-                    canonical_form[i, j] = 0  # Empty intersection
-
-        return canonical_form
-
-    def display_pz_board(self, agent, observation, board_size):
-        if agent == "white_0":
-            is_white_player = 1
-            is_black_player = 0
-        else:
-            is_white_player = 0
-            is_black_player = 1
-
-        # 1 is always current player
-        for i in range(board_size):
-            for j in range(board_size):
-                if observation['observation'][i, j, is_white_player] == 1:
-                    print('W', end=' ')  # White stone
-                elif observation['observation'][i, j, is_black_player] == 1:
-                    print('b', end=' ')  # Black stone
-                else:
-                    print('.', end=' ')  # Empty intersection
-            print()  # New line for each row
+        return np.array(board.pieces).tostring()
 
     def action_space_to_GTP(self, action):
         # supports up to 26 x 26 boards
         coords = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
                   'u', 'v', 'w', 'x', 'y', 'z']
 
-        if action == self.getBoardSize()[0]**2:
+        if action == self.getBoardSize()[0] ** 2:
             return f''
 
         # x coord = action / board_size
@@ -200,4 +151,30 @@ class GoGame(Game):
 
         # return column + row (in form: 'aa', 'df', 'cd', etc.)
         return f'{coords[int(action / self.getBoardSize()[0])]}' + f'{coords[int(action % self.getBoardSize()[0])]}'
+
+
+def display(board):
+    state = ""
+    b_pieces = np.array(board.pieces)
+
+    n = b_pieces.shape[0]
+
+    for y in range(n):
+        state = state + str(y) + " |"
+    state += "\n"
+    state += " -----------------------\n"
+    for y in range(n):
+        state += str(y) + "|"
+        for x in range(n):
+            piece = b_pieces[y][x]    # get the piece to print
+            if piece == 1:
+                state += "b "
+            elif piece == -1:
+                state += "W "
+            else:
+                if x == n:
+                    state += "-"
+                else:
+                    canonicalForm[i, j] = zero  # Empty intersection
+        return canonicalForm
 

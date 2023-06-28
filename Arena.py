@@ -40,95 +40,41 @@ class Arena:
             or
                 draw result returned from the game that is neither 1, -1, nor 0.
         """
-        arena_env = go.env(board_size=self.game.getBoardSize()[0])
-        arena_env.reset()
-        step = 1
-        outcome = 0
-
+        players = [self.player2, None, self.player1]
+        curPlayer = 1
+        board = self.game.getInitBoard()
+        it = 0
         action_history = []
+        while self.game.getGameEnded(board, curPlayer) == 0:
+            it += 1
+            if verbose:
+                score = self.game.getScore(board)
 
-        for agent in arena_env.agent_iter():
-            obs, reward, termination, truncation, info = arena_env.last()
-            canonical_form = self.game.get_pz_canonical_form(self.game.getBoardSize()[0], obs)
+                if self.displayValue == 1:
+                    print("\nTurn ", str(it), "Player ", str(curPlayer))
+                    print(self.display(board))
+                    print(f"Current score: b {score[0]}, W {score[1]}")
 
-            if termination or truncation:
-                if self.game_num % 2 == 0:
-                    # on even number games, new model = black = player 2
-                    if agent == 'black_0' and reward == 1:
-                        outcome = -1
-                    elif agent == 'white_0' and reward == 1:
-                        outcome = 1
-                    elif agent == 'black_0' and reward == -1:
-                        outcome = 1
-                    elif agent == 'white_0' and reward == -1:
-                        outcome = -1
-                    arena_env.close()
-                    return outcome, action_history
-                else:
-                    # on odd number games, old model = black = player 1
-                    if agent == 'black_0' and reward == 1:
-                        outcome = 1
-                    elif agent == 'white_0' and reward == 1:
-                        outcome = -1
-                    elif agent == 'black_0' and reward == -1:
-                        outcome = -1
-                    elif agent == 'white_0' and reward == -1:
-                        outcome = 1
-                    arena_env.close()
-                    return outcome, action_history
-                
-            # End game if a player is winning by certain threshold
-            score = arena_env.unwrapped._go.score()
-            if ((score > self.by_score) or (score < -self.by_score)) and step > 14: 
-                #print("Won by score")
-                if self.game_num % 2 == 0:
-                    if score > 0:
-                        outcome = -1
-                    else:
-                        outcome = 1
-                else:
-                    if score > 0:
-                        outcome = 1
-                    else:
-                        outcome = -1
-                return outcome, action_history
-            
-            # determine player and moves
-            # new model is player2
-            # old model is player1
-            # on even number games, new model starts
-            # on odd number games, old model starts
-            if self.game_num % 2 == 0:
-                # new model gets to start (new model is black agent)
-                if agent == "black_0":
-                    # new model = black
-                    moves = self.player2(canonical_form, arena_env)
-                    current_player_num = 2
-                else:
-                    # old model = white
-                    moves = self.player1(canonical_form, arena_env)
-                    current_player_num = 1
-            else:
-                # old model gets to start (old model is black agent)
-                if agent == "black_0":
-                    # old model = black
-                    moves = self.player1(canonical_form, arena_env)
-                    current_player_num = 1
-                else:
-                    # new model = white
-                    moves = self.player2(canonical_form, arena_env)
-                    current_player_num = 2
-            
-            action = np.argmax(moves)
-            action_history.append(f";{agent.capitalize()[0]}[{self.game.action_space_to_GTP(action)}]")
+            action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer))
+            player_name = "B" if curPlayer == 1 else "W"
+            action_history.append(f";{player_name}[{self.game.action_space_to_GTP(action)}]")
+
+            valids = self.game.getValidMoves(self.game.getCanonicalForm(board, curPlayer), 1)
+
+            if valids[action] == 0:
+                print(action)
+                # assert valids[action] >0
+            board, curPlayer = self.game.getNextState(board, curPlayer, action)
+
+        if verbose:
+            # assert(self.display)
+            r, score = self.game.getGameEnded(board, 1, returnScore=True)
 
             if self.displayValue == 1:
-                print(
-                    f"================Game {self.game_num} Step:{step}=====Next Player:{current_player_num}==========")
-                self.game.display_pz_board(board_size=self.game.getBoardSize()[0], observation=obs, agent=agent)
-
-            step += 1
-            arena_env.step(action)
+                print("\nGame over: Turn ", str(it), "Result ", str(r))
+                print(self.display(board))
+                print(f"Final score: b {score[0]}, W {score[1]}\n")
+        return self.game.getGameEnded(board, 1), action_history
 
     def playGames(self, num):
         """
@@ -148,15 +94,36 @@ class Arena:
         player_two_wins = 0
         draws = 0
 
+        outcomes = []
+
+        for _ in range(num):
+            gameResult, action_history = self.playGame(verbose=verbose)
+            outcomes.append(action_history)
+            if gameResult == 1:
+                oneWon += 1
+            elif gameResult == -1:
+                twoWon += 1
+            else:
+                draws += 1
+            # bookkeeping + plot progress
+            eps += 1
+            eps_time.update(time.time() - end)
+            end = time.time()
+            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps, maxeps=maxeps, et=eps_time.avg,
+                                                                                                       total=bar.elapsed_td, eta=bar.eta_td)
+            bar.next()
+
+        self.player1, self.player2 = self.player2, self.player1
+
         all_arena_games_history = []
 
         for _ in range(num):
-            game_result, action_history = self.playGame()
-            all_arena_games_history.append(action_history)
-            if game_result == 1:
-                player_one_wins += 1
-            elif game_result == -1:
-                player_two_wins += 1
+            gameResult = self.playGame(verbose=verbose)
+            outcomes.append(action_history)
+            if gameResult == -1:
+                oneWon += 1
+            elif gameResult == 1:
+                twoWon += 1
             else:
                 draws += 1
 
@@ -175,5 +142,5 @@ class Arena:
             self.game_num += 1
 
         bar.finish()
-
-        return player_one_wins, player_two_wins, draws, all_arena_games_history
+        
+        return oneWon, twoWon, draws, outcomes

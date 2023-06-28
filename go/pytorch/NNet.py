@@ -34,7 +34,7 @@ args = dotdict({
     'num_channels': 512,
 })
 
-print(args)
+# print(args)
 
 
 class NNetWrapper(NeuralNet):
@@ -71,7 +71,6 @@ class NNetWrapper(NeuralNet):
         batch_size = 64 * round((len(examples) / 100) / 64)
         if batch_size < 64:
             batch_size = 64
-        print(f'Batch size for training: {batch_size}')
 
         for epoch in range(args.epochs):
             # print('EPOCH ::: ' + str(epoch + 1))
@@ -195,5 +194,4 @@ class NNetWrapper(NeuralNet):
         for k, v in state_dict.items():
             name = "module." + k  # add 'module.' of dataparallel, so it works with examples from plain model
             new_state_dict[name] = v
-
         self.nnet.load_state_dict(new_state_dict)
