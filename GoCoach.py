@@ -60,7 +60,7 @@ class Coach():
         while True:
             episodeStep += 1
             if self.display == 1:
-                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode,
+                print("\n================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode + 1,
                                                                                              episodeStep,
                                                                                              "White" if curPlayer == -1 else "Black"))
             canonicalBoard = game.getCanonicalForm(board, curPlayer)
@@ -164,13 +164,11 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(self.game, self.args.datetime,
+            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
+                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime,
                           display=display,
-                          displayValue=self.display.value, num_processes=self.args.num_processes,
-                          board_size=self.game.getBoardSize()[0])
-            # player1 = lambda x: np.argmax(pmcts.getActionProb(x, temp=0))
-            # player2 = lambda x: np.argmax(nmcts.getActionProb(x, temp=0))
-            pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare, pmcts, nmcts)
+                          displayValue=self.display.value)
+            pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:

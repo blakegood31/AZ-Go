@@ -15,26 +15,26 @@ class Display(IntEnum):
     DISPLAY_BOARD = 1
 
 
-BoardSize = 5
-NetType = 'CNN'  # or 'RES'
+BoardSize = 7
+NetType = 'RES'  # or 'RES'
 tag = 'MCTS_SimModified'
 
 
 args = dotdict({
-    'numIters': 1,
-    'numEps': 2,              # Number of complete self-play games to simulate during a new iteration.
+    'numIters': 1000,
+    'numEps': 400,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-    'numMCTSSims': 200,         # Number of games moves for MCTS to simulate.
-    'arenaCompare': 4,         # Number of games to play during arena play to determine if new net will be accepted.
-    'cpuct': 3,
+    'numMCTSSims': 150,         # Number of games moves for MCTS to simulate.
+    'arenaCompare': 30,         # Number of games to play during arena play to determine if new net will be accepted.
+    'cpuct': 1,
 
     # 10 process maximum currently, do not set any higher
-    'num_processes': 2,
+    'num_processes': 4,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
-    'load_model': False,
+    'load_model': True,
     'numItersForTrainExamplesHistory': 25,
     'display': Display.DISPLAY_BAR,
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
@@ -73,7 +73,7 @@ if __name__ == "__main__":
         # if you are loading a checkpoint created from a model without DataParallel
         # use the load_checkpoint_from_plain_to_parallel() function
         # instead of the load_checkpoint() function
-        nnet.load_checkpoint_from_plain_to_parallel(args.checkpoint, 'best.pth.tar')
+        # nnet.load_checkpoint_from_plain_to_parallel(args.checkpoint, 'best.pth.tar')
 
         nnet.load_checkpoint(args.checkpoint, 'best.pth.tar')
 
