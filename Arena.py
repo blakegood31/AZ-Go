@@ -1,15 +1,13 @@
 import numpy as np
 from pytorch_classification.utils import Bar, AverageMeter
 import time
-from pettingzoo.classic import go_v5 as go
 
-
-class Arena:
+class Arena():
     """
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game, datetime, display_value=0):
+    def __init__(self, player1, player2, game, datetime, display=None, displayValue=0):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -21,16 +19,14 @@ class Arena:
         see othello/OthelloPlayers.py for an example. See pit.py for pitting
         human players/other baselines with each other.
         """
-        self.player1 = player1  # Previous Model, black_0
-        self.player2 = player2  # New Model, white_0
+        self.player1 = player1
+        self.player2 = player2
         self.game = game
-        self.displayValue = display_value
+        self.display = display
+        self.displayValue = displayValue
         self.datetime = datetime
-        self.game_num = 1
-        self.komi = 1 if self.game.getBoardSize()[0]<=7 else 7.5
-        self.by_score = 0.5 * (self.game.getBoardSize()[0] * self.game.getBoardSize()[0] + self.komi)
 
-    def playGame(self):
+    def playGame(self, verbose=True):
         """
         Executes one episode of a game.
 
@@ -76,22 +72,26 @@ class Arena:
                 print(f"Final score: b {score[0]}, W {score[1]}\n")
         return self.game.getGameEnded(board, 1), action_history
 
-    def playGames(self, num):
+    def playGames(self, num, verbose=True):
         """
         Plays num games in which player1 starts num/2 games and player2 starts
         num/2 games.
 
         Returns:
-            player_one_wins: games won by player1
-            player_two_wins: games won by player2
+            oneWon: games won by player1
+            twoWon: games won by player2
             draws:  games won by nobody
         """
         eps_time = AverageMeter()
-        bar = Bar('Arena Play', max=num)
+        bar = Bar('Arena.playGames', max=num)
         end = time.time()
+        eps = 0
+        maxeps = int(num)
+        originalNum = num
 
-        player_one_wins = 0
-        player_two_wins = 0
+        num = int(num / 2)
+        oneWon = 0
+        twoWon = 0
         draws = 0
 
         outcomes = []
@@ -115,7 +115,8 @@ class Arena:
 
         self.player1, self.player2 = self.player2, self.player1
 
-        all_arena_games_history = []
+        if(originalNum%2 == 1):
+            num += 1
 
         for _ in range(num):
             gameResult = self.playGame(verbose=verbose)
@@ -126,21 +127,17 @@ class Arena:
                 twoWon += 1
             else:
                 draws += 1
-
             # bookkeeping + plot progress
-
+            eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
-            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(
-                eps=self.game_num,
-                maxeps=num,
-                et=eps_time.avg,
-                total=bar.elapsed_td,
-                eta=bar.eta_td)
+            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps,
+                                                                                                       maxeps=maxeps,
+                                                                                                       et=eps_time.avg,
+                                                                                                       total=bar.elapsed_td,
+                                                                                                       eta=bar.eta_td)
             bar.next()
 
-            self.game_num += 1
-
         bar.finish()
-        
+
         return oneWon, twoWon, draws, outcomes

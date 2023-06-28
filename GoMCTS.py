@@ -1,5 +1,4 @@
 import math
-import time
 import sys
 import numpy as np
 from timeit import default_timer as timer
@@ -58,10 +57,7 @@ class MCTS():
         for i in range(max(self.args.numMCTSSims, self.smartSimNum)):
             self.search(canonicalBoard)
 
-            # make a copy of the environment
-            search_env = go.env(board_size=self.args['board_size'])
-            search_env.reset()
-            search_env = copy.deepcopy(env)
+        s = self.game.stringRepresentation(canonicalBoard)
 
         counts = np.array([self.Nsa[(s, a)] if (s, a) in self.Nsa else 0 for a in range(self.game.getActionSize())])
         valids = self.game.getValidMoves(canonicalBoard, player=1)
@@ -74,6 +70,7 @@ class MCTS():
 
         if temp == 0:
             bestA = np.argmax(counts)
+
             try:
                 assert (valids[bestA] != 0)
             except:
@@ -128,7 +125,7 @@ class MCTS():
 
         return probs * valids
 
-    def search(self, search_env, canonical_board, calls):
+    def search(self, canonicalBoard):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -147,31 +144,17 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-        if calls > 500:
-            return 1e-4
+        # print("doing mcts on board:")
+        # display(canonicalBoard)
 
-        obs, reward, termination, truncation, info = search_env.last()
+        gameEnd = self.game.getGameEnded(canonicalBoard, 1)
+        if gameEnd != 0:
+            return -gameEnd
+        s = self.game.stringRepresentation(canonicalBoard)
 
-        if reward != 0:
-            if search_env.agent_selection == 'black_0' and reward == 1:
-                return reward
-            elif search_env.agent_selection == 'white_0' and reward == 1:
-                return -reward
-            elif search_env.agent_selection == 'black_0' and reward == -1:
-                return reward
-            else:
-                return -reward
-
-        s = self.game.stringRepresentation(canonical_board)
-
-        # leaf node
         if s not in self.Ps:
-            self.Ps[s], v = self.nnet.predict(canonical_board)
-
-            valids = np.array(obs['action_mask'])
-            valids[-1] = 0
-            if all(element == 0 for element in valids):
-                valids[-1] = 1
+            # print("leaf node")
+            self.Ps[s], v = self.nnet.predict(canonicalBoard.pieces)
 
             valids = self.game.getValidMoves(canonicalBoard, 1)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
@@ -191,11 +174,7 @@ class MCTS():
             self.Ns[s] = 0
             return -v
 
-        # not a leaf node
-        valids = np.array(obs['action_mask'])
-        valids[-1] = 0
-        if all(element == 0 for element in valids):
-            valids[-1] = 1
+        valids = self.Vs[s]
         cur_best = -float('inf')
         best_act = -1
 
@@ -217,10 +196,9 @@ class MCTS():
         # print("in MCTS.search, need next search, shifting player from 1")
 
         try:
-            search_env.step(a)
-            obs, reward, termination, truncation, info = search_env.last()
+            next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
 
-            next_s = self.game.getBoard(obs, search_env.agent_selection)
+            # print("in MCTS.search, need next search, next player is {}".format(next_player))
         except:
             # print("###############在search内部节点出现错误：###########")
             # display(canonicalBoard)
@@ -244,14 +222,15 @@ class MCTS():
                         best_act = a
 
             a = best_act
+            # print("recalculate the valids vector:{} ".format(valids))
             try:
-                search_env.step(a)
-                obs, reward, termination, truncation, info = search_env.last()
-                next_s = self.game.getBoard(obs, search_env.agent_selection)
+                next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
             except:
-                return -1e-4
+                return
 
-        v = self.search(search_env, next_s, calls+1)
+        next_s = self.game.getCanonicalForm(next_s, next_player)
+
+        v = self.search(next_s)
 
         if (s, a) in self.Qsa:
             assert (valids[a] != 0)
