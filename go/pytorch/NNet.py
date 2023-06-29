@@ -43,8 +43,15 @@ class NNetWrapper(NeuralNet):
         if t == 'RES':
             netMkr = NetMaker(game, args)
             self.nnet = netMkr.makeNet()
+
+            # distributed training
+            self.nnet = nn.DataParallel(self.nnet)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.nnet.to(device)
         else:
             self.nnet = GoNNet(game, args)
+
+            # distributed training
             self.nnet = nn.DataParallel(self.nnet)
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.nnet.to(device)
