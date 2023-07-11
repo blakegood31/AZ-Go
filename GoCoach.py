@@ -132,6 +132,7 @@ class Coach():
             if self.args.distributed_training:
                 #Create drive object
                 drive = DriveAPI()
+                downloads_count = 0
                 #Get list of all files in Google Drive
                 files = []
                 for item in drive.items:
@@ -158,6 +159,7 @@ class Coach():
                     #Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
                     if "drive_checkpoint" in curr_file and not best_found:
                         if not curr_file in downloaded_files:
+                            downloads_count += 1
                             #Download and store new file
                             print("Downloading Train Examples: ", drive.items[j]['name'])
                             drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
@@ -166,10 +168,23 @@ class Coach():
                             append_downloads = True
                         else:
                             #Load in file if already downloaded
+                            downloads_count += 1
                             file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
                             print("Loading pre downloaded file")
                             self.loadDownloadedExamples(file_path)
                             append_downloads = True
+                downloads_count = downloads_count * 5
+                downloads_count += 100
+            else:
+                downloads_count = self.args.numEps
+            #Log how many games were added during each iteration
+            file_name = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/Game_Counts.txt'
+            counts_file = open(file_name, 'w')
+            counts_file.close()
+            counts_file = open(file_name, 'a')
+            counts_file.write(f"\n Number of games added to train examples during iteration #{i}: {downloads_count} games\n")
+            counts_file.close()
+
 
             if not self.skipFirstSelfPlay or append_downloads:
                 self.trainExamplesHistory.append(self.iterationTrainExamples)
