@@ -10,6 +10,8 @@ from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
+from DriveAPI import DriveAPI
+import psutil
 
 
 class Coach():
@@ -33,6 +35,7 @@ class Coach():
         self.v_loss_per_iteration = []
         self.winRate = []
         self.currentEpisode = 0
+        self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
     def executeEpisode(self):
         """
@@ -51,34 +54,34 @@ class Coach():
                            the player eventually won the game, else -1.
         """
         trainExamples = []
-        game = self.game
-        board = game.getInitBoard()
+        board = self.game.getInitBoard()
         curPlayer = 1
         episodeStep = 0
-        mcts = MCTS(game, self.nnet, self.args)
-
+        print('RAM Used at beginning of episode (GB):', psutil.virtual_memory()[3]/1000000000)
         while True:
+            
             episodeStep += 1
             if self.display == 1:
                 print("\n================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode + 1,
                                                                                              episodeStep,
                                                                                              "White" if curPlayer == -1 else "Black"))
-            canonicalBoard = game.getCanonicalForm(board, curPlayer)
+            
+            canonicalBoard = self.game.getCanonicalForm(board, curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
-            pi = mcts.getActionProb(canonicalBoard, temp=temp)
+            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
             # get different symmetries/rotations of the board
-            sym = game.getSymmetries(canonicalBoard, pi)
+            sym = self.game.getSymmetries(canonicalBoard, pi)
             for b, p in sym:
                 trainExamples.append([b, curPlayer, p, None])
             action = np.random.choice(len(pi), p=pi)
 
-            board, curPlayer = game.getNextState(board, curPlayer, action)
+            board, curPlayer = self.game.getNextState(board, curPlayer, action)
             if self.display == 1:
                 print("BOARD updated:")
                 # display(board)
                 print(display(board))
-            r, score = game.getGameEnded(board.copy(), curPlayer, returnScore=True)
+            r, score = self.game.getGameEnded(board.copy(), curPlayer, returnScore=True)
             if r != 0:
                 if self.display == 1:
                     print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
@@ -101,43 +104,79 @@ class Coach():
         only if it wins >= updateThreshold fraction of games.
         """
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
+        upload_number = 1
 
-        for i in range(1, self.args.numIters + 1):
+        if self.args.load_model:
+            self.loadLosses()
+        
+        for i in range(self.args.start_iter, self.args.numIters + 1):
+
             iterHistory['ITER'].append(i)
             # bookkeeping
             # examples of the iteration
-            if not self.skipFirstSelfPlay or i > 1:
+            if not self.skipFirstSelfPlay or i > self.args.start_iter:
                 self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
                 bar = Bar('Self Play', max=self.args.numEps)
                 end = time.time()
 
-                for eps in range(int(self.args.numEps / self.args.num_processes)):
+                for eps in range(self.args.numEps):
                     # bookkeeping + plot progress
                     eps_time.update(time.time() - end)
                     end = time.time()
 
-                    with multiprocessing.Pool(self.args.num_processes) as pool:
+                    self.mcts = MCTS(self.game, self.nnet, self.args)
+                    self.iterationTrainExamples += self.executeEpisode()
 
-                        for _ in range(self.args.num_processes):
-                            pool.apply_async(self.executeEpisode, callback=self.append_eps_result)
+            #Perform necessary tasks with Google Drive if doing distributed training
+            if self.args.distributed_training:
+                #Create drive object
+                drive = DriveAPI()
+                #Get list of all files in Google Drive
+                files = []
+                for item in drive.items:
+                    name = item['name']
+                    files.append(name)
 
-                        pool.close()
-                        pool.join()
+                #Get list of files already downloaded from drive 
+                checkpoint_dir = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/'
+                downloaded_files = [str(file) for file in os.listdir(checkpoint_dir) if file.startswith('drive_')]
 
-                    # increment bar
-                    for k in range(self.args.num_processes):
-                        bar.suffix = f'{eps * self.args.num_processes + k + 1}/{self.args.numEps} ' \
-                                     f'Eps Time: {bar.elapsed_td / (eps + 1)}s ' \
-                                     f'| Total: {bar.elapsed_td}' \
-                                     f'| ETA: {(bar.elapsed_td / (eps + 1)) / self.args.num_processes * (self.args.numEps - eps)}'
-                        bar.next()
+                #Find most recent batches of training examples 
+                print("Checking for new files from drive")
+                best_found = False
+                append_downloads = False
+                for j in range(len(files)):
+                    curr_file = files[j]
+                    #Check what upload_num should be (used for model storage on drive)
+                    if curr_file.startswith('best'):
+                        best_found = True
+                        best_num = int(curr_file.split('.')[0][4:])
+                        if best_num > upload_number:
+                            upload_number = best_num + 1
 
-                bar.finish()
+                    #Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
+                    if "drive_checkpoint" in curr_file and not best_found:
+                        if not curr_file in downloaded_files:
+                            #Download and store new file
+                            print("Downloading Train Examples: ", drive.items[j]['name'])
+                            drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
+                            file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
+                            self.loadDownloadedExamples(file_path)
+                            append_downloads = True
+                        else:
+                            #Load in file if already downloaded
+                            file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
+                            print("Loading pre downloaded file")
+                            self.loadDownloadedExamples(file_path)
+                            append_downloads = True
+
+            if not self.skipFirstSelfPlay or append_downloads:
+                self.trainExamplesHistory.append(self.iterationTrainExamples)
 
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
-                # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
-                self.trainExamplesHistory.pop(0)
+                while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+                    self.trainExamplesHistory.pop(0)
 
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
@@ -148,7 +187,6 @@ class Coach():
             for e in self.trainExamplesHistory:
                 trainExamples.extend(e)
             shuffle(trainExamples)
-
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
@@ -157,6 +195,7 @@ class Coach():
             trainLog = self.nnet.train(trainExamples)
             self.p_loss_per_iteration.append(np.average(trainLog['P_LOSS'].to_numpy()))
             self.v_loss_per_iteration.append(np.average(trainLog['V_LOSS'].to_numpy()))
+            self.saveLosses()
             if self.keepLog:
                 trainLog.to_csv(self.logPath + 'ITER_{}_TRAIN_LOG.csv'.format(i))
 
@@ -175,11 +214,19 @@ class Coach():
                 print('REJECTING NEW MODEL')
                 iterHistory['PITT_RESULT'].append('R')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                if i == 1 and self.args.distributed_training:
+                    upload_path = os.path.join(self.args.checkpoint, 'temp.pth.tar')
+                    drive.FileUpload(upload_path, upload_number)
             else:
                 print('ACCEPTING NEW MODEL')
                 iterHistory['PITT_RESULT'].append('A')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+                if self.args.distributed_training:
+                    upload_path = os.path.join(self.args.checkpoint, 'best.pth.tar')
+                    drive.FileUpload(upload_path, upload_number)
+                    upload_number += 1
+
 
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
@@ -200,6 +247,40 @@ class Coach():
             Pickler(f).dump(self.trainExamplesHistory)
         f.closed
 
+    def saveLosses(self):
+        #Save ploss, vloss, and winRate so graphs are consistent across training sessions
+        folder = self.args.checkpoint
+        if not os.path.exists(folder):
+                os.makedirs(folder)
+        vloss_filename = os.path.join(folder, "vlosses")
+        ploss_filename = os.path.join(folder, "plosses")
+        winRate_filename = os.path.join(folder, "winrates")
+        with open(vloss_filename, "wb+") as f:
+            Pickler(f).dump(self.v_loss_per_iteration)
+        f.closed
+        with open(ploss_filename, "wb+") as f:
+            Pickler(f).dump(self.p_loss_per_iteration)
+        f.closed
+        with open(winRate_filename, "wb+") as f:
+            Pickler(f).dump(self.winRate)
+        f.closed
+        
+
+    def loadDownloadedExamples(self, file_path):
+        examplesFile = file_path
+        with open(examplesFile, "rb") as f:
+            if len(self.iterationTrainExamples) == 0:
+                examples = Unpickler(f).load()
+                for i in range(len(examples)):
+                    self.iterationTrainExamples += examples[i]
+            else:
+                examples = Unpickler(f).load()
+                for i in range(len(examples)):
+                    self.iterationTrainExamples += examples[i]
+        self.skipFirstSelfPlay = False
+        f.closed
+        
+
     def loadTrainExamples(self):
         modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
         examplesFile = modelFile  # + ".examples"
@@ -215,6 +296,27 @@ class Coach():
             f.closed
             # examples based on the model were already collected (loaded)
             self.skipFirstSelfPlay = True
+    
+    def loadLosses(self):
+        #Load in ploss, vloss, and winRates from previous iterations so graphs are consistent
+        vlossFile = os.path.join(self.args.checkpoint, "vlosses")
+        plossFile = os.path.join(self.args.checkpoint, "plosses")
+        winrateFile = os.path.join(self.args.checkpoint, "winrates")
+        if not os.path.isfile(vlossFile) or not os.path.isfile(plossFile):
+            r = input("File with vloss or ploss not found. Continue? [y|n]")
+            if r != "y":
+                sys.exit()
+        else:
+            print("File with trainExamples found. Read it.")
+            with open(vlossFile, "rb") as f:
+                self.v_loss_per_iteration = Unpickler(f).load()
+            f.closed
+            with open(plossFile, "rb") as f:
+                self.p_loss_per_iteration = Unpickler(f).load()
+            f.closed
+            with open(winrateFile, "rb") as f:
+                self.winRate = Unpickler(f).load()
+            f.closed
 
     # plot/save v/p loss after training
     # plot/save Arena Play Win Rates after arena
