@@ -119,7 +119,7 @@ class Arena():
             num += 1
 
         for _ in range(num):
-            gameResult = self.playGame(verbose=verbose)
+            gameResult, action_history = self.playGame(verbose=verbose)
             outcomes.append(action_history)
             if gameResult == -1:
                 oneWon += 1

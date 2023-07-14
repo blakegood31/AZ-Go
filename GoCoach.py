@@ -1,3 +1,4 @@
+import multiprocessing
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
@@ -9,6 +10,8 @@ from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
+from DriveAPI import DriveAPI
+import psutil
 
 
 class Coach():
@@ -32,6 +35,7 @@ class Coach():
         self.v_loss_per_iteration = []
         self.winRate = []
         self.currentEpisode = 0
+        self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
     def executeEpisode(self):
         """
@@ -95,13 +99,14 @@ class Coach():
         """
 
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
+        upload_number = 1
 
-        for i in range(1, self.args.numIters + 1):
+        for i in range(self.args.start_iter, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
             # bookkeeping
             # examples of the iteration
-            if not self.skipFirstSelfPlay or i > 1:
-                iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+            if not self.skipFirstSelfPlay or i > self.args.start_iter:
+                self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                 eps_time = AverageMeter()
                 bar = Bar('Self Play', max=self.args.numEps)
                 end = time.time()
@@ -110,7 +115,7 @@ class Coach():
                     # print("{}th Episode:".format(eps+1))
                     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
                     self.currentEpisode = eps + 1
-                    iterationTrainExamples += self.executeEpisode()
+                    self.iterationTrainExamples += self.executeEpisode()
 
                     # bookkeeping + plot progress
                     eps_time.update(time.time() - end)
@@ -123,8 +128,55 @@ class Coach():
 
                 bar.finish()
 
-                # save the iteration examples to the history
-                self.trainExamplesHistory.append(iterationTrainExamples)
+
+            if self.args.distributed_training:
+                #Create drive object
+                drive = DriveAPI()
+                downloads_count = 0
+
+                #Get list of all files in Google Drive
+                files = []
+                for item in drive.items:
+                    name = item['name']
+                    files.append(name)
+
+                #Get list of files already downloaded from drive 
+                checkpoint_dir = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/'
+                downloaded_files = [str(file) for file in os.listdir(checkpoint_dir) if file.startswith('drive_')]
+
+                #Find most recent batches of training examples 
+                print("Checking for new files from drive")
+                best_found = False
+                append_downloads = False
+                for j in range(len(files)):
+                    curr_file = files[j]
+                    #Check what upload_num should be (used for model storage on drive)
+                    if curr_file.startswith('best'):
+                        best_found = True
+                        best_num = int(curr_file.split('.')[0][4:])
+                        if best_num >= upload_number:
+                            upload_number = best_num + 1
+
+                    #Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
+                    if "drive_checkpoint" in curr_file and not best_found:
+                        if not curr_file in downloaded_files:
+                            downloads_count += 1
+                            #Download and store new file
+                            print("Downloading Train Examples: ", drive.items[j]['name'])
+                            drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
+                            file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
+                            self.loadDownloadedExamples(file_path)
+                            append_downloads = True
+
+                downloads_count = downloads_count * 5
+                downloads_count += 100
+            else:
+                downloads_count = self.args.numEps                
+
+
+            # save the iteration examples to the history
+            if not self.skipFirstSelfPlay or append_downloads:
+                self.trainExamplesHistory.append(self.iterationTrainExamples)
 
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
@@ -170,11 +222,16 @@ class Coach():
                 iterHistory['PITT_RESULT'].append('A')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+                if self.args.distributed_training:
+                    upload_path = os.path.join(self.args.checkpoint, 'best.pth.tar')
+                    drive.FileUpload(upload_path, upload_number)
+                    upload_number += 1
 
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
             self.create_sgf_files_for_games(games=outcomes, iteration=i)
             self.saveTrainingPlots()
+            self.skipFirstSelfPlay = False
 
         pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
@@ -205,6 +262,20 @@ class Coach():
             f.closed
             # examples based on the model were already collected (loaded)
             self.skipFirstSelfPlay = True
+
+    def loadDownloadedExamples(self, file_path):
+        examplesFile = file_path
+        with open(examplesFile, "rb") as f:
+            if len(self.iterationTrainExamples) == 0:
+                examples = Unpickler(f).load()
+                for i in range(len(examples)):
+                    self.iterationTrainExamples += examples[i]
+            else:
+                examples = Unpickler(f).load()
+                for i in range(len(examples)):
+                    self.iterationTrainExamples += examples[i]
+        self.skipFirstSelfPlay = False
+        f.closed
 
     # plot/save v/p loss after training
     # plot/save Arena Play Win Rates after arena
@@ -241,7 +312,7 @@ class Coach():
     def create_sgf_files_for_games(self, games, iteration):
 
         for game_idx in range(len(games)):
-            file_name = f'logs/go/Game_History/Iteration {iteration}, Game {game_idx + 1} {self.args.datetime}.sgf'
+            file_name = f'logs/go/Game_History/Iteration {iteration}, Game {game_idx + 1} {self.args.sgf_datetime}.sgf'
             sgf_file = open(file_name, 'w')
             sgf_file.close()
 
