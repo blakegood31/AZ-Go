@@ -104,10 +104,6 @@ class Coach():
         if self.args.load_model:
             self.loadLosses()
 
-        print(self.p_loss_per_iteration)
-        print(self.v_loss_per_iteration)
-        print(self.winRate)
-
         for i in range(self.args.start_iter, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
             # bookkeeping
@@ -176,11 +172,19 @@ class Coach():
                             append_downloads = True
 
                 downloads_count = downloads_count * 5
-                downloads_count += 100
+                downloads_count += self.args.numEps
             else:
-                downloads_count = self.args.numEps                
+                downloads_count = self.args.numEps     
 
-            print(len(self.iterationTrainExamples))
+            #Log how many games were added during each iteration
+            file_name = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/Game_Counts.txt'
+            if not os.path.isfile(file_name):
+                counts_file = open(file_name, 'w')
+                counts_file.close()
+            counts_file = open(file_name, 'a')
+            counts_file.write(f"\n Number of games added to train examples during iteration #{i}: {downloads_count} games\n")
+            counts_file.close()
+
             # save the iteration examples to the history
             if not self.skipFirstSelfPlay or append_downloads:
                 self.trainExamplesHistory.append(self.iterationTrainExamples)
@@ -225,6 +229,10 @@ class Coach():
                 print('REJECTING NEW MODEL')
                 iterHistory['PITT_RESULT'].append('R')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
+                if i == 1 and self.args.distributed_training and not self.args.load_model:
+                    upload_path = os.path.join(self.args.checkpoint, 'temp.pth.tar')
+                    drive.FileUpload(upload_path, upload_number)
+
             else:
                 print('ACCEPTING NEW MODEL')
                 iterHistory['PITT_RESULT'].append('A')

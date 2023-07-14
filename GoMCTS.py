@@ -51,7 +51,7 @@ class MCTS():
         # display(canonicalBoard)
         
         #print('current sim numbers:{}'.format(max(self.args.numMCTSSims,self.smartSimNum)))
-        for i in range(max(self.args.numMCTSSims,self.smartSimNum)):
+        for i in range(min(self.args.numMCTSSims,self.smartSimNum)):
 
             self.search(canonicalBoard)
 
