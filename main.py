@@ -22,13 +22,13 @@ tag = 'MCTS_SimModified'
 
 
 args = dotdict({
-    'numIters': 1,
-    'numEps': 1,              # Number of complete self-play games to simulate during a new iteration.
+    'numIters': 5,
+    'numEps': 2,              # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
     'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
     'numMCTSSims': 150,         # Number of games moves for MCTS to simulate.
-    'arenaCompare': 5,         # Number of games to play during arena play to determine if new net will be accepted.
+    'arenaCompare': 1,         # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 3,
 
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
@@ -56,6 +56,9 @@ if __name__ == "__main__":
 
     g = Game(BoardSize)
     nnet = nn(g, t=NetType)
+
+    if not os.path.exists(args.checkpoint):
+        os.makedirs(args.checkpoint)
 
     logPath = './logs/go/{}_log/{}/'.format(NetType + '_' + tag, BoardSize)
     try:

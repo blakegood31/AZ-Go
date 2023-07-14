@@ -101,6 +101,13 @@ class Coach():
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
         upload_number = 1
 
+        if self.args.load_model:
+            self.loadLosses()
+
+        print(self.p_loss_per_iteration)
+        print(self.v_loss_per_iteration)
+        print(self.winRate)
+
         for i in range(self.args.start_iter, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
             # bookkeeping
@@ -173,7 +180,7 @@ class Coach():
             else:
                 downloads_count = self.args.numEps                
 
-
+            print(len(self.iterationTrainExamples))
             # save the iteration examples to the history
             if not self.skipFirstSelfPlay or append_downloads:
                 self.trainExamplesHistory.append(self.iterationTrainExamples)
@@ -181,7 +188,7 @@ class Coach():
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
                 self.trainExamplesHistory.pop(0)
-
+            print(len(self.trainExamplesHistory))
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
@@ -191,7 +198,7 @@ class Coach():
             for e in self.trainExamplesHistory:
                 trainExamples.extend(e)
             shuffle(trainExamples)
-
+            print(len(trainExamples))
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
@@ -212,6 +219,7 @@ class Coach():
                           displayValue=self.display.value)
             pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
+            self.saveLosses()
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
                 print('REJECTING NEW MODEL')
@@ -276,6 +284,45 @@ class Coach():
                     self.iterationTrainExamples += examples[i]
         self.skipFirstSelfPlay = False
         f.closed
+
+    def saveLosses(self):
+        #Save ploss, vloss, and winRate so graphs are consistent across training sessions
+        folder = self.args.checkpoint
+        if not os.path.exists(folder):
+                os.makedirs(folder)
+        vloss_filename = os.path.join(folder, "vlosses")
+        ploss_filename = os.path.join(folder, "plosses")
+        winRate_filename = os.path.join(folder, "winrates")
+        with open(vloss_filename, "wb+") as f:
+            Pickler(f).dump(self.v_loss_per_iteration)
+        f.closed
+        with open(ploss_filename, "wb+") as f:
+            Pickler(f).dump(self.p_loss_per_iteration)
+        f.closed
+        with open(winRate_filename, "wb+") as f:
+            Pickler(f).dump(self.winRate)
+        f.closed
+
+    def loadLosses(self):
+        #Load in ploss, vloss, and winRates from previous iterations so graphs are consistent
+        vlossFile = os.path.join(self.args.checkpoint, "vlosses")
+        plossFile = os.path.join(self.args.checkpoint, "plosses")
+        winrateFile = os.path.join(self.args.checkpoint, "winrates")
+        if not os.path.isfile(vlossFile) or not os.path.isfile(plossFile):
+            r = input("File with vloss or ploss not found. Continue? [y|n]")
+            if r != "y":
+                sys.exit()
+        else:
+            print("File with trainExamples found. Read it.")
+            with open(vlossFile, "rb") as f:
+                self.v_loss_per_iteration = Unpickler(f).load()
+            f.closed
+            with open(plossFile, "rb") as f:
+                self.p_loss_per_iteration = Unpickler(f).load()
+            f.closed
+            with open(winrateFile, "rb") as f:
+                self.winRate = Unpickler(f).load()
+            f.closed
 
     # plot/save v/p loss after training
     # plot/save Arena Play Win Rates after arena
