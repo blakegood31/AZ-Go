@@ -20,31 +20,36 @@ BoardSize = 7
 NetType = 'RES'  # or 'RES'
 tag = 'MCTS_SimModified'
 
-
 args = dotdict({
+    # training parameters
     'numIters': 1000,
-    'numEps': 100,              # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 2,  # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
-    'updateThreshold': 0.54,    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
-    'maxlenOfQueue': 200000,    # Number of game examples to train the neural networks.
-    'numMCTSSims': 150,         # Number of games moves for MCTS to simulate.
-    'arenaCompare': 50,         # Number of games to play during arena play to determine if new net will be accepted.
+    'updateThreshold': 0.54,
+    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
+    'maxlenOfQueue': 200000,  # Number of game examples to train the neural networks.
+    'numMCTSSims': 150,  # Number of games moves for MCTS to simulate.
+    'arenaCompare': 2,  # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1.0,
-
-    'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
-    'load_model': False,
     'numItersForTrainExamplesHistory': 25,
-    'display': Display.DISPLAY_BOARD,
+
+    # customization
+    'load_model': False,
+    'distributed_training': False,  # use Google Drivr for computing on multiple machines
+    'display': Display.DISPLAY_BAR,
+
+    # utility
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
     'sgf_datetime': datetime.now().strftime("%d-%m-%Y %H"),
     'nettype': NetType,
     'boardsize': BoardSize,
-    'distributed_training': True,
     'start_time': time.time(),
+    'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
 })
 if args.load_model:
     checkpoint_dir = f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/'
-    checkpoint_files = [file for file in os.listdir(checkpoint_dir) if file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
+    checkpoint_files = [file for file in os.listdir(checkpoint_dir) if
+                        file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
     latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
     args['load_folder_file'] = [f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/', latest_checkpoint]
     args['start_iter'] = int(latest_checkpoint.split('_')[1].split('.')[0]) + 1

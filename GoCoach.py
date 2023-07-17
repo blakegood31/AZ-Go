@@ -106,6 +106,7 @@ class Coach():
 
         for i in range(self.args.start_iter, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
+            print(f"######## Iteration {i} ########")
             # bookkeeping
             # examples of the iteration
             if not self.skipFirstSelfPlay or i > self.args.start_iter:
@@ -143,11 +144,11 @@ class Coach():
                     name = item['name']
                     files.append(name)
 
-                #Get list of files already downloaded from drive 
+                #Get list of files already downloaded from drive
                 checkpoint_dir = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/'
                 downloaded_files = [str(file) for file in os.listdir(checkpoint_dir) if file.startswith('drive_')]
 
-                #Find most recent batches of training examples 
+                #Find most recent batches of training examples
                 print("Checking for new files from drive")
                 best_found = False
                 append_downloads = False
@@ -174,7 +175,7 @@ class Coach():
                 downloads_count = downloads_count * 5
                 downloads_count += self.args.numEps
             else:
-                downloads_count = self.args.numEps     
+                downloads_count = self.args.numEps
 
             #Log how many games were added during each iteration
             file_name = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/Game_Counts.txt'
@@ -192,7 +193,7 @@ class Coach():
             if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
                 self.trainExamplesHistory.pop(0)
-            print(len(self.trainExamplesHistory))
+
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
@@ -202,7 +203,7 @@ class Coach():
             for e in self.trainExamplesHistory:
                 trainExamples.extend(e)
             shuffle(trainExamples)
-            print(len(trainExamples))
+
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
