@@ -100,6 +100,7 @@ class Coach():
         print('RAM Used start of learn (GB):', psutil.virtual_memory()[3]/1000000000)
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
         upload_number = 1
+        append_downloads = False
 
         if self.args.load_model:
             self.loadLosses()
@@ -152,7 +153,6 @@ class Coach():
                 #Find most recent batches of training examples
                 print("Checking for new files from drive")
                 best_found = False
-                append_downloads = False
                 for j in range(len(files)):
                     curr_file = files[j]
                     #Check what upload_num should be (used for model storage on drive)
