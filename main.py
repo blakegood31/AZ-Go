@@ -7,6 +7,7 @@ from enum import IntEnum
 from datetime import datetime
 import torch.multiprocessing as mp
 import time
+import psutil 
 
 sys.setrecursionlimit(5000)
 
@@ -31,12 +32,13 @@ args = dotdict({
     'numMCTSSims': 150,  # Number of games moves for MCTS to simulate.
     'arenaCompare': 2,  # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1.0,
-    'numItersForTrainExamplesHistory': 25,
+    'numItersForTrainExamplesHistory': 15,
 
     # customization
-    'load_model': False,
-    'distributed_training': False,  # use Google Drivr for computing on multiple machines
+    'load_model': True,
+    'distributed_training': True,  # use Google Drivr for computing on multiple machines
     'display': Display.DISPLAY_BAR,
+    'ram_cap': 20,
 
     # utility
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),
@@ -92,7 +94,9 @@ if __name__ == "__main__":
     c = Coach(g, nnet, args, log=True, logPath=logPath)
 
     if args.load_model:
+        print('RAM Used before load (GB):', psutil.virtual_memory()[3]/1000000000)
         print("Loading trainExamples from file")
         c.loadTrainExamples()
+        print('RAM Used after load (GB):', psutil.virtual_memory()[3]/1000000000)
 
     c.learn()

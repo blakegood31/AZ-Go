@@ -97,7 +97,7 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
-
+        print('RAM Used start of learn (GB):', psutil.virtual_memory()[3]/1000000000)
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
         upload_number = 1
 
@@ -135,6 +135,7 @@ class Coach():
 
             if self.args.distributed_training:
                 #Create drive object
+                print('RAM Used before download (GB):', psutil.virtual_memory()[3]/1000000000)
                 drive = DriveAPI()
                 downloads_count = 0
 
@@ -171,6 +172,12 @@ class Coach():
                             file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
                             self.loadDownloadedExamples(file_path)
                             append_downloads = True
+                        elif self.args.load_model:
+                            downloads_count += 1
+                            file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
+                            iterationTrainExamples = self.loadDownloadedExamples(file_path, iterationTrainExamples)
+                            append_downloads = True
+
 
                 downloads_count = downloads_count * 5
                 downloads_count += self.args.numEps
@@ -190,9 +197,15 @@ class Coach():
             if not self.skipFirstSelfPlay or append_downloads:
                 self.trainExamplesHistory.append(self.iterationTrainExamples)
 
-            if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+            print(len(self.trainExamplesHistory))
+            ramUsed = int(psutil.virtual_memory()[3]/1000000000)
+            ramCap = self.args.ram_cap
+            
+            if int(psutil.virtual_memory()[3]/1000000000) > ramCap: 
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
-                self.trainExamplesHistory.pop(0)
+                while int(psutil.virtual_memory()[3]/1000000000) > ramCap:
+                    print(len(self.trainExamplesHistory))
+                    self.trainExamplesHistory.pop(0)
 
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
@@ -261,6 +274,7 @@ class Coach():
             os.makedirs(folder)
         filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
         with open(filename, "wb+") as f:
+            print('RAM Used before dump (GB):', psutil.virtual_memory()[3]/1000000000)
             Pickler(f).dump(self.trainExamplesHistory)
         f.closed
 
