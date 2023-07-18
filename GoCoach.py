@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from DriveAPI import DriveAPI
 import psutil
-
+import gc
 
 class Coach():
     """
@@ -136,10 +136,10 @@ class Coach():
 
             if self.args.distributed_training:
                 # Create drive object
-                print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
+                
                 drive = DriveAPI()
                 downloads_count = 0
-
+                print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
                 # Get list of all files in Google Drive
                 files = []
                 for item in drive.items:
@@ -175,9 +175,12 @@ class Coach():
                         elif self.args.load_model:
                             downloads_count += 1
                             file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
-                            iterationTrainExamples = self.loadDownloadedExamples(file_path, iterationTrainExamples)
+                            self.loadDownloadedExamples(file_path)
                             append_downloads = True
 
+                del files
+                del downloaded_files
+                gc.collect()
                 downloads_count = downloads_count * 5
                 downloads_count += self.args.numEps
             else:
@@ -217,13 +220,15 @@ class Coach():
             while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 self.trainExamplesHistory.pop(0)
 
+            print("Ram used before clear itTrainEx: ", psutil.virtual_memory()[3] / 1000000000)
+            self.iterationTrainExamples.clear()
+            print("Ram used after clear itTrainEx: ", psutil.virtual_memory()[3] / 1000000000)
             # prune trainExamples to meet ram requirement
-            ramUsed = int(psutil.virtual_memory()[3] / 1000000000)
             ramCap = self.args.ram_cap
-            while ramUsed > ramCap:
+            while int(psutil.virtual_memory()[3] / 1000000000) > ramCap and len(self.trainExamplesHistory) > 13:
                 print(len(self.trainExamplesHistory))
                 self.trainExamplesHistory.pop(0)
-
+            
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
@@ -234,16 +239,18 @@ class Coach():
                 trainExamples.extend(e)
             shuffle(trainExamples)
 
+            print("Ram used before clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
+            self.trainExamplesHistory = []
+            print("Ram used after clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
+            
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             pmcts = MCTS(self.game, self.pnet, self.args)
 
             trainLog = self.nnet.train(trainExamples)
-
+            trainExamples = []
             # clear trainExamples to save memory, reload when needed
-            self.trainExamplesHistory = []
-            self.iterationTrainExamples.clear()
 
             self.p_loss_per_iteration.append(np.average(trainLog['P_LOSS'].to_numpy()))
             self.v_loss_per_iteration.append(np.average(trainLog['V_LOSS'].to_numpy()))
