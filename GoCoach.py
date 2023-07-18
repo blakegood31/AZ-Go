@@ -20,7 +20,7 @@ class Coach():
     in Game and NeuralNet. args are specified in main.py.
     """
 
-    def __init__(self, game, nnet, args, log=False, logPath=''):
+    def __init__(self, game, nnet, args, log=False, logPath='', NetType='RES'):
         self.game = game
         self.nnet = nnet
         self.pnet = self.nnet.__class__(self.game, t=self.nnet.netType)  # the competitor network
@@ -36,6 +36,7 @@ class Coach():
         self.winRate = []
         self.currentEpisode = 0
         self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+        self.NetType = NetType
 
     def executeEpisode(self):
         """
@@ -186,17 +187,33 @@ class Coach():
             counts_file.write(f"\n Number of games added to train examples during iteration #{i}: {downloads_count} games\n")
             counts_file.close()
 
-            # save the iteration examples to the history
-            if not self.skipFirstSelfPlay or append_downloads:
-                self.trainExamplesHistory.append(self.iterationTrainExamples)
+            if i != 1 or self.args.load_model:
+                new_train_examples = self.iterationTrainExamples
 
-            if len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+                # update pathing
+                checkpoint_dir = f'logs/go/{self.NetType}_MCTS_SimModified_checkpoint/{self.game.getBoardSize()[0]}/'
+                checkpoint_files = [file for file in os.listdir(checkpoint_dir) if
+                                    file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
+                latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
+                self.args.load_folder_file = [
+                    f'logs/go/{self.NetType}_MCTS_SimModified_checkpoint/{self.game.getBoardSize()[0]}/',
+                    latest_checkpoint]
+
+                self.loadTrainExamples()
+
+                self.trainExamplesHistory.append(new_train_examples)
+            else:
+                # save the iteration examples to the history
+                if not self.skipFirstSelfPlay or append_downloads:
+                    self.trainExamplesHistory.append(self.iterationTrainExamples)
+
+            while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
                 self.trainExamplesHistory.pop(0)
 
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
-            self.saveTrainExamples(i - 1)
+            self.saveTrainExamples(i-1)
 
             # shuffle examples before training
             trainExamples = []
@@ -210,12 +227,18 @@ class Coach():
             pmcts = MCTS(self.game, self.pnet, self.args)
 
             trainLog = self.nnet.train(trainExamples)
+
+            # clear trainExamples to save memory, reload when needed
+            self.trainExamplesHistory = []
+            self.iterationTrainExamples.clear()
+
             self.p_loss_per_iteration.append(np.average(trainLog['P_LOSS'].to_numpy()))
             self.v_loss_per_iteration.append(np.average(trainLog['V_LOSS'].to_numpy()))
             if self.keepLog:
                 trainLog.to_csv(self.logPath + 'ITER_{}_TRAIN_LOG.csv'.format(i))
 
             iterHistory['ITER_DETAIL'].append(self.logPath + 'ITER_{}_TRAIN_LOG.csv'.format(i))
+
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
@@ -322,7 +345,7 @@ class Coach():
             if r != "y":
                 sys.exit()
         else:
-            print("File with trainExamples found. Read it.")
+            print("File with graph information found. Read it.")
             with open(vlossFile, "rb") as f:
                 self.v_loss_per_iteration = Unpickler(f).load()
             f.closed

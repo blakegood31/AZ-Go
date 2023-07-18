@@ -23,7 +23,7 @@ tag = 'MCTS_SimModified'
 args = dotdict({
     # training parameters
     'numIters': 1000,
-    'numEps': 2,  # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 20,  # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
@@ -31,11 +31,11 @@ args = dotdict({
     'numMCTSSims': 150,  # Number of games moves for MCTS to simulate.
     'arenaCompare': 2,  # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1.0,
-    'numItersForTrainExamplesHistory': 25,
+    'numItersForTrainExamplesHistory': 15,
 
     # customization
-    'load_model': False,
-    'distributed_training': False,  # use Google Drivr for computing on multiple machines
+    'load_model': True,
+    'distributed_training': False,  # use Google Drive for computing on multiple machines
     'display': Display.DISPLAY_BAR,
 
     # utility
@@ -46,6 +46,7 @@ args = dotdict({
     'start_time': time.time(),
     'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
 })
+
 if args.load_model:
     checkpoint_dir = f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/'
     checkpoint_files = [file for file in os.listdir(checkpoint_dir) if
@@ -53,6 +54,7 @@ if args.load_model:
     latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
     args['load_folder_file'] = [f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/', latest_checkpoint]
     args['start_iter'] = int(latest_checkpoint.split('_')[1].split('.')[0]) + 1
+
 else:
     args['start_iter'] = 1
 
@@ -89,10 +91,9 @@ if __name__ == "__main__":
         # instead of the load_checkpoint() function
         nnet.load_checkpoint(args.checkpoint, 'best.pth.tar')
 
-    c = Coach(g, nnet, args, log=True, logPath=logPath)
+    c = Coach(g, nnet, args, log=True, logPath=logPath, NetType=NetType)
 
     if args.load_model:
-        print("Loading trainExamples from file")
-        c.loadTrainExamples()
+        c.skipFirstSelfPlay = True
 
     c.learn()
