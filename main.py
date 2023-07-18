@@ -7,6 +7,7 @@ from enum import IntEnum
 from datetime import datetime
 import torch.multiprocessing as mp
 import time
+import psutil 
 
 sys.setrecursionlimit(5000)
 
@@ -23,7 +24,7 @@ tag = 'MCTS_SimModified'
 args = dotdict({
     # training parameters
     'numIters': 1000,
-    'numEps': 20,  # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 2,  # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
@@ -34,9 +35,10 @@ args = dotdict({
     'numItersForTrainExamplesHistory': 15,
 
     # customization
-    'load_model': True,
+    'load_model': False,
     'distributed_training': False,  # use Google Drive for computing on multiple machines
     'display': Display.DISPLAY_BAR,
+    'ram_cap': 30,
 
     # utility
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),

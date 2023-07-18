@@ -62,8 +62,9 @@ class Coach():
 
             episodeStep += 1
             if self.display == 1:
-                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode, episodeStep,
-                                                                                          "White" if self.curPlayer == -1 else "Black"))
+                print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode,
+                                                                                             episodeStep,
+                                                                                             "White" if self.curPlayer == -1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             temp = int(episodeStep < self.args.tempThreshold)
 
@@ -89,7 +90,6 @@ class Coach():
             elif r == 0 and self.display == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
 
-
     def learn(self):
         """
         Performs numIters iterations with numEps episodes of self-play in each
@@ -98,7 +98,7 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
-
+        print('RAM Used start of learn (GB):', psutil.virtual_memory()[3] / 1000000000)
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
         upload_number = 1
         append_downloads = False
@@ -128,49 +128,54 @@ class Coach():
                     end = time.time()
 
                     bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                            eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
-                            total=bar.elapsed_td, eta=bar.eta_td)
+                        eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
+                        total=bar.elapsed_td, eta=bar.eta_td)
                     bar.next()
 
                 bar.finish()
 
-
             if self.args.distributed_training:
-                #Create drive object
+                # Create drive object
+                print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
                 drive = DriveAPI()
                 downloads_count = 0
 
-                #Get list of all files in Google Drive
+                # Get list of all files in Google Drive
                 files = []
                 for item in drive.items:
                     name = item['name']
                     files.append(name)
 
-                #Get list of files already downloaded from drive
+                # Get list of files already downloaded from drive
                 checkpoint_dir = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/'
                 downloaded_files = [str(file) for file in os.listdir(checkpoint_dir) if file.startswith('drive_')]
 
-                #Find most recent batches of training examples
+                # Find most recent batches of training examples
                 print("Checking for new files from drive")
                 best_found = False
                 for j in range(len(files)):
                     curr_file = files[j]
-                    #Check what upload_num should be (used for model storage on drive)
+                    # Check what upload_num should be (used for model storage on drive)
                     if curr_file.startswith('best'):
                         best_found = True
                         best_num = int(curr_file.split('.')[0][4:])
                         if best_num >= upload_number:
                             upload_number = best_num + 1
 
-                    #Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
+                    # Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
                     if "drive_checkpoint" in curr_file and not best_found:
                         if not curr_file in downloaded_files:
                             downloads_count += 1
-                            #Download and store new file
+                            # Download and store new file
                             print("Downloading Train Examples: ", drive.items[j]['name'])
                             drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
                             file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
                             self.loadDownloadedExamples(file_path)
+                            append_downloads = True
+                        elif self.args.load_model:
+                            downloads_count += 1
+                            file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
+                            iterationTrainExamples = self.loadDownloadedExamples(file_path, iterationTrainExamples)
                             append_downloads = True
 
                 downloads_count = downloads_count * 5
@@ -178,13 +183,14 @@ class Coach():
             else:
                 downloads_count = self.args.numEps
 
-            #Log how many games were added during each iteration
+            # Log how many games were added during each iteration
             file_name = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/Game_Counts.txt'
             if not os.path.isfile(file_name):
                 counts_file = open(file_name, 'w')
                 counts_file.close()
             counts_file = open(file_name, 'a')
-            counts_file.write(f"\n Number of games added to train examples during iteration #{i}: {downloads_count} games\n")
+            counts_file.write(
+                f"\n Number of games added to train examples during iteration #{i}: {downloads_count} games\n")
             counts_file.close()
 
             if i != 1 or self.args.load_model:
@@ -207,13 +213,20 @@ class Coach():
                 if not self.skipFirstSelfPlay or append_downloads:
                     self.trainExamplesHistory.append(self.iterationTrainExamples)
 
+            # prune trainExamples to meet args recommendation
             while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
-                # print("len(trainExamplesHistory) =", len(self.trainExamplesHistory), " => remove the oldest trainExamples")
+                self.trainExamplesHistory.pop(0)
+
+            # prune trainExamples to meet ram requirement
+            ramUsed = int(psutil.virtual_memory()[3] / 1000000000)
+            ramCap = self.args.ram_cap
+            while ramUsed > ramCap:
+                print(len(self.trainExamplesHistory))
                 self.trainExamplesHistory.pop(0)
 
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
-            self.saveTrainExamples(i-1)
+            self.saveTrainExamples(i - 1)
 
             # shuffle examples before training
             trainExamples = []
@@ -243,7 +256,8 @@ class Coach():
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime, display=display,
+                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime,
+                          display=display,
                           displayValue=self.display.value)
             pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)
             self.winRate.append(nwins / self.args.arenaCompare)
@@ -284,12 +298,13 @@ class Coach():
             os.makedirs(folder)
         filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
         with open(filename, "wb+") as f:
+            print('RAM Used before dump (GB):', psutil.virtual_memory()[3] / 1000000000)
             Pickler(f).dump(self.trainExamplesHistory)
         f.closed
 
     def loadTrainExamples(self):
         modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
-        examplesFile = modelFile #+ ".examples"
+        examplesFile = modelFile  # + ".examples"
         if not os.path.isfile(examplesFile):
             print(examplesFile)
             r = input("File with trainExamples not found. Continue? [y|n]")
@@ -318,10 +333,10 @@ class Coach():
         f.closed
 
     def saveLosses(self):
-        #Save ploss, vloss, and winRate so graphs are consistent across training sessions
+        # Save ploss, vloss, and winRate so graphs are consistent across training sessions
         folder = self.args.checkpoint
         if not os.path.exists(folder):
-                os.makedirs(folder)
+            os.makedirs(folder)
         vloss_filename = os.path.join(folder, "vlosses")
         ploss_filename = os.path.join(folder, "plosses")
         winRate_filename = os.path.join(folder, "winrates")
@@ -336,7 +351,7 @@ class Coach():
         f.closed
 
     def loadLosses(self):
-        #Load in ploss, vloss, and winRates from previous iterations so graphs are consistent
+        # Load in ploss, vloss, and winRates from previous iterations so graphs are consistent
         vlossFile = os.path.join(self.args.checkpoint, "vlosses")
         plossFile = os.path.join(self.args.checkpoint, "plosses")
         winrateFile = os.path.join(self.args.checkpoint, "winrates")
