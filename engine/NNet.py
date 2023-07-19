@@ -1,34 +1,29 @@
 import os
 import time
-from collections import OrderedDict
-
 import numpy as np
 import sys
+from collections import OrderedDict
 
-from torch import nn
-
-sys.path.append('../../')
+sys.path.append('../../../../')
 
 import pandas as pd
 import torch
 import torch.optim as optim
 from torch.autograd import Variable
+from torch import nn
 
-from .GoAlphaNet import AlphaNetMaker as NetMaker
-from .GoNNet import GoNNet
+from GoAlphaNet import AlphaNetMaker as NetMaker
+from GoNNet import GoNNet
 
-try:
-    from utils import *
-    from pytorch_classification.utils import Bar, AverageMeter
-    from NeuralNet import NeuralNet
-except:
-    from ...utils import *
-    from ...pytorch_classification.utils import Bar, AverageMeter
-    from ...NeuralNet import NeuralNet
+from utils import *
+#from pytorch_classification.utils import Bar, AverageMeter
+from NeuralNet import NeuralNet
+
+import psutil
 
 args = dotdict({
     'lr': 0.001,
-    'dropout': 0.0,
+    'dropout': 0.3,
     'epochs': 10,
     'cuda': torch.cuda.is_available(),
     'num_channels': 512,
@@ -43,13 +38,8 @@ class NNetWrapper(NeuralNet):
         if t == 'RES':
             netMkr = NetMaker(game, args)
             self.nnet = netMkr.makeNet()
-            self.nnet = nn.DataParallel(self.nnet)
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.nnet.to(device)
         else:
             self.nnet = GoNNet(game, args)
-
-            # distributed training
             self.nnet = nn.DataParallel(self.nnet)
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.nnet.to(device)
@@ -182,17 +172,27 @@ class NNetWrapper(NeuralNet):
             'state_dict': self.nnet.state_dict(),
         }, filepath)
 
-    def load_checkpoint(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):
+    def load_checkpoint(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar', cpu_only=False):
         # https://github.com/pytorch/examples/blob/master/imagenet/main.py#L98
         filepath = os.path.join(folder, filename)
         if not os.path.exists(filepath):
             raise BaseException("No model in path {}".format(filepath))
-        checkpoint = torch.load(filepath)
+
+        if cpu_only:
+            checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(filepath)
+
         self.nnet.load_state_dict(checkpoint['state_dict'])
 
-    def load_checkpoint_from_plain_to_parallel(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):
+    def load_checkpoint_from_plain_to_parallel(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar', cpu_only=False):
         filepath = os.path.join(folder, filename)
-        checkpoint = torch.load(filepath)
+
+        if cpu_only:
+            checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(filepath)
+
         state_dict = checkpoint['state_dict']
 
         new_state_dict = OrderedDict()

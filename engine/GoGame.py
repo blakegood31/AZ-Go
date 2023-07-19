@@ -1,15 +1,12 @@
 from __future__ import print_function
-try:
-    from Game import Game
-    from GoLogic import Board
-except:
-    try:
-        from alphabrain.Game import Game
-        from alphabrain.go.GoLogic import Board
-    except:
-        from Game import Game
-        from go.GoLogic import Board
+
+from Game import Game
+from GoLogic import Board
+
+    
+from Game import Game
 import numpy as np
+
 
 
 class GoGame(Game):
@@ -138,33 +135,19 @@ class GoGame(Game):
         # 8x8 numpy array (canonical board)
         return np.array(board.pieces).tostring()
 
-    def action_space_to_GTP(self, action):
-        # supports up to 26 x 26 boards
-        coords = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
-                  'u', 'v', 'w', 'x', 'y', 'z']
-
-        if action == self.getBoardSize()[0] ** 2:
-            return f''
-
-        # x coord = action / board_size
-        # y coord = action % board_size
-
-        # return column + row (in form: 'aa', 'df', 'cd', etc.)
-        return f'{coords[int(action / self.getBoardSize()[0])]}' + f'{coords[int(action % self.getBoardSize()[0])]}'
-
 
 def display(board):
-    state = ""
+    state = "  "
     b_pieces = np.array(board.pieces)
 
     n = b_pieces.shape[0]
-
+    col_coords = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P']
     for y in range(n):
-        state = state + str(y) + " |"
+        state = state + col_coords[y] + " "
     state += "\n"
     state += " -----------------------\n"
     for y in range(n):
-        state += str(y) + "|"
+        state += str(n-y) + "|"
         for x in range(n):
             piece = b_pieces[y][x]    # get the piece to print
             if piece == 1:
