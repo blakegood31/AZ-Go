@@ -32,7 +32,7 @@ args = dotdict({
     'numMCTSSims': 150,  # Number of games moves for MCTS to simulate.
     'arenaCompare': 50,  # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1.0,
-    'numItersForTrainExamplesHistory': 15,
+    'numItersForTrainExamplesHistory': 25,
 
     # customization
     'load_model': True,

@@ -161,9 +161,12 @@ class Coach():
                         best_num = int(curr_file.split('.')[0][4:])
                         if best_num >= upload_number:
                             upload_number = best_num + 1
+                            
+                    if best_found and downloads_count > 80:
+                        break
 
                     # Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
-                    if "drive_checkpoint" in curr_file and not best_found:
+                    if "drive_checkpoint" in curr_file:
                         if not curr_file in downloaded_files:
                             downloads_count += 1
                             # Download and store new file
