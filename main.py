@@ -7,7 +7,6 @@ from enum import IntEnum
 from datetime import datetime
 import torch.multiprocessing as mp
 import time
-import psutil 
 
 sys.setrecursionlimit(5000)
 
@@ -32,13 +31,13 @@ args = dotdict({
     'numMCTSSims': 150,  # Number of games moves for MCTS to simulate.
     'arenaCompare': 50,  # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1.0,
-    'numItersForTrainExamplesHistory': 25,
+    'numItersForTrainExamplesHistory': 30,
 
     # customization
     'load_model': True,
     'distributed_training': True,  # use Google Drive for computing on multiple machines
     'display': Display.DISPLAY_BAR,
-    'ram_cap': 30,
+    'ram_cap': 120,
 
     # utility
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),

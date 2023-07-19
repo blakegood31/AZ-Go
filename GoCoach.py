@@ -1,4 +1,3 @@
-import multiprocessing
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
@@ -13,6 +12,7 @@ import matplotlib.pyplot as plt
 from DriveAPI import DriveAPI
 import psutil
 import gc
+import os
 
 class Coach():
     """
@@ -139,6 +139,7 @@ class Coach():
                 
                 drive = DriveAPI()
                 downloads_count = 0
+                downloads_threshold = 500 if self.skipFirstSelfPlay else 400
                 print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
                 # Get list of all files in Google Drive
                 files = []
@@ -162,30 +163,48 @@ class Coach():
                         if best_num >= upload_number:
                             upload_number = best_num + 1
                             
-                    if best_found and downloads_count > 80:
+                    if best_found and downloads_count > downloads_threshold:
                         break
 
                     # Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
                     if "drive_checkpoint" in curr_file:
                         if not curr_file in downloaded_files:
-                            downloads_count += 1
+                            # downloads_count += 1
                             # Download and store new file
                             print("Downloading Train Examples: ", drive.items[j]['name'])
-                            drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
-                            file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
-                            self.loadDownloadedExamples(file_path)
-                            append_downloads = True
+                            try:
+                                drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
+                                file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
+                                self.loadDownloadedExamples(file_path)
+
+                                if os.path.getsize(file_path) < 1000000:
+                                    print(f"{curr_file} is a single game.")
+                                    downloads_count += 1
+                                else:
+                                    downloads_count += 5
+
+                                append_downloads = True
+                            except:
+                                pass
                         elif self.args.load_model:
-                            downloads_count += 1
+                            # downloads_count += 1
                             file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
                             self.loadDownloadedExamples(file_path)
+
+                            if os.path.getsize(file_path) < 1000000:
+                                print(f"{curr_file} is a single game.")
+                                downloads_count += 1
+                            else:
+                                downloads_count += 5
+
                             append_downloads = True
 
                 del files
                 del downloaded_files
                 gc.collect()
-                downloads_count = downloads_count * 5
-                downloads_count += self.args.numEps
+                # downloads_count = downloads_count * 5
+                if not self.skipFirstSelfPlay:
+                    downloads_count += self.args.numEps
             else:
                 downloads_count = self.args.numEps
 
@@ -226,6 +245,7 @@ class Coach():
             print("Ram used before clear itTrainEx: ", psutil.virtual_memory()[3] / 1000000000)
             self.iterationTrainExamples.clear()
             print("Ram used after clear itTrainEx: ", psutil.virtual_memory()[3] / 1000000000)
+
             # prune trainExamples to meet ram requirement
             ramCap = self.args.ram_cap
             while int(psutil.virtual_memory()[3] / 1000000000) > ramCap and len(self.trainExamplesHistory) > 13:
