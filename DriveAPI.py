@@ -90,16 +90,8 @@ class DriveAPI:
         # print("First Item:",  items[1][0].id,"\n")
         print(*self.items, sep="\n", end="\n\n")
         print("done printing items")
-        """for item in items:
-			if item['name'] == 'Sabaki_Engine':
-				checkpoint = item
-				break
-			else:
-				checkpoint = items[0]
-		print(checkpoint)"""
 
     def FileDownload(self, file_id, file_name):
-
         request = self.service.files().get_media(fileId=file_id)
         fh = io.BytesIO()
 
@@ -136,8 +128,6 @@ class DriveAPI:
         # name = filepath.split('/')[-1]
         # print(name)
         name = f'best{modelnum}.pth.tar'
-        """if len(name) == 1:
-			name = filepath.split('\\')[-1]"""
 
         # Find the MimeType of the file
         mimetype = MimeTypes().guess_type(name)[0]
@@ -156,5 +146,3 @@ class DriveAPI:
 
         except:
             pass
-    # Raise UploadError if file is not uploaded.
-    # raise UploadError("Can't Upload File.")

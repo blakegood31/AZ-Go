@@ -141,7 +141,7 @@ class Coach():
                 drive = DriveAPI()
                 downloads_count = 0
                 downloads_threshold = 500 if self.skipFirstSelfPlay else 400
-                print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
+                # print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
                 # Get list of all files in Google Drive
                 files = []
                 for item in drive.items:
@@ -349,14 +349,13 @@ class Coach():
     def loadDownloadedExamples(self, file_path):
         examplesFile = file_path
         with open(examplesFile, "rb") as f:
-            if len(self.iterationTrainExamples) == 0:
+            try:
                 examples = Unpickler(f).load()
                 for i in range(len(examples)):
                     self.iterationTrainExamples += examples[i]
-            else:
-                examples = Unpickler(f).load()
-                for i in range(len(examples)):
-                    self.iterationTrainExamples += examples[i]
+            except:
+                print(f"Error loading file: {file_path}\nFile not found on local device. Maybe there was an issue downloading it?")
+                pass
         self.skipFirstSelfPlay = False
         f.closed
 
