@@ -35,7 +35,7 @@ args = dotdict({
 
     # customization
     'load_model': False,
-    'distributed_training': False,  # use Google Drive for computing on multiple machines
+    'distributed_training': True,  # use Google Drive for computing on multiple machines
     'display': Display.DISPLAY_BAR,
     'ram_cap': 120,
 

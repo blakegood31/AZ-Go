@@ -9,37 +9,14 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
 
-BoardSize = 7
-NetType = 'RES'  # or 'CNN'
-tag = 'MCTS_SimModified'
-
-args = dict({
-    'numIters': 1000,
-    'numEps': 20,  # Number of complete self-play games to simulate during a new iteration.
-    'tempThreshold': 15,
-    'updateThreshold': 0.54,
-    # During arena playoff, new neural net will be accepted if threshold or more of games are won.
-    'maxlenOfQueue': 200000,  # Number of game examples to train the neural networks.
-    'numMCTSSims': 150,  # Number of games moves for MCTS to simulate.
-    'arenaCompare': 3,  # Number of games to play during arena play to determine if new net will be accepted.
-    'cpuct': 1.0,
-
-    # 10 process maximum currently, do not set any higher
-    'num_processes': 4,
-
-    'checkpoint': './logs/go/{}_checkpoint/{}/'.format(NetType + '_' + tag, BoardSize),
-    'load_model': False,
-    'numItersForTrainExamplesHistory': 25,
-})
-
 
 class DriveAPI:
-    global SCOPES
 
-    # Define the scopes
-    SCOPES = ['https://www.googleapis.com/auth/drive']
-
-    def __init__(self):
+    def __init__(self, net_type, board_size):
+        self.net_type = net_type
+        self.board_size = board_size
+        # define the SCOPES
+        self.SCOPES = ['https://www.googleapis.com/auth/drive']
 
         # Variable self.creds will
         # store the user access token.
@@ -69,7 +46,7 @@ class DriveAPI:
                 self.creds.refresh(Request())
             else:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    'credentials.json', SCOPES)
+                    'credentials.json', self.SCOPES)
                 self.creds = flow.run_local_server(port=0)
 
             # Save the access token in token.pickle
@@ -96,7 +73,7 @@ class DriveAPI:
         fh = io.BytesIO()
 
         prev_dir = os.getcwd()
-        os.chdir(f'logs/go/{NetType}_MCTS_SimModified_checkpoint/{BoardSize}/')
+        os.chdir(f'logs/go/{self.net_type}_MCTS_SimModified_checkpoint/{self.board_size}/')
 
         # Initialise a downloader object to download the file
         downloader = MediaIoBaseDownload(fh, request, chunksize=204800)

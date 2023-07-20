@@ -138,7 +138,7 @@ class Coach():
             if self.args.distributed_training:
                 # Create drive object
 
-                drive = DriveAPI()
+                drive = DriveAPI(self.args.nettype, self.args.boardsize)
                 downloads_count = 0
                 downloads_threshold = 500 if self.skipFirstSelfPlay else 400
                 # print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
