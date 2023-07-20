@@ -1,7 +1,8 @@
 import math
 import sys
+
 import numpy as np
-from timeit import default_timer as timer
+import time
 
 try:
     from .go.GoGame import display
@@ -49,15 +50,9 @@ class MCTS():
         """
 
         # display(canonicalBoard)
-        
-        #print('current sim numbers:{}'.format(max(self.args.numMCTSSims,self.smartSimNum)))
-        for i in range(min(self.args.numMCTSSims,self.smartSimNum)):
 
         # print('current sim numbers:{}'.format(max(self.args.numMCTSSims,self.smartSimNum)))
-
-        start = timer()
-
-        for i in range(max(self.args.numMCTSSims, self.smartSimNum)):
+        for i in range(min(self.args.numMCTSSims, self.smartSimNum)):
             self.search(canonicalBoard)
 
         s = self.game.stringRepresentation(canonicalBoard)
@@ -102,6 +97,7 @@ class MCTS():
                         print("no nsa, has qsa")
                     if not flag_Nsa and flag_Qsa:
                         print("has nsa, no qsa")
+
                 print(counts)
 
             probs = [0 for i in range(len(counts))]
@@ -111,9 +107,6 @@ class MCTS():
                 if probs[_] > 0:
                     assert (valids[_] > 0)
 
-            end = timer()
-            # print(f"Action Prob: {round(end - start, 3)}")
-
             return probs
 
         counts = [x ** (1. / temp) for x in counts]
@@ -122,9 +115,6 @@ class MCTS():
         for _ in range(self.game.getActionSize()):
             if probs[_] > 0:
                 assert (valids[_] > 0)
-
-        end = timer()
-        # print(f"Action Prob: {round(end - start, 3)}")
 
         return probs * valids
 
@@ -247,3 +237,4 @@ class MCTS():
         self.Ns[s] += 1
 
         return -v
+

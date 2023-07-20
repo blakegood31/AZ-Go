@@ -1,4 +1,3 @@
-import multiprocessing
 from collections import deque
 from Arena import Arena
 from GoMCTS import MCTS
@@ -14,6 +13,7 @@ from DriveAPI import DriveAPI
 import psutil
 import gc
 import os
+
 
 class Coach():
     """
@@ -57,11 +57,10 @@ class Coach():
         """
         trainExamples = []
         board = self.game.getInitBoard()
-        curPlayer = 1
+        self.curPlayer = 1
         episodeStep = 0
-        print('RAM Used at beginning of episode (GB):', psutil.virtual_memory()[3]/1000000000)
         while True:
-            
+
             episodeStep += 1
             if self.display == 1:
                 print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode,
@@ -74,21 +73,21 @@ class Coach():
             # get different symmetries/rotations of the board
             sym = self.game.getSymmetries(canonicalBoard, pi)
             for b, p in sym:
-                trainExamples.append([b, curPlayer, p, None])
+                trainExamples.append([b, self.curPlayer, p, None])
             action = np.random.choice(len(pi), p=pi)
 
-            board, curPlayer = self.game.getNextState(board, curPlayer, action)
+            board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
             if self.display == 1:
                 print("BOARD updated:")
                 # display(board)
                 print(display(board))
-            r, score = self.game.getGameEnded(board.copy(), curPlayer, returnScore=True)
+            r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
             if r != 0:
                 if self.display == 1:
                     print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
                                                                                         score[0], score[1]))
 
-                return [(x[0], x[2], r * ((-1) ** (x[1] != curPlayer))) for x in trainExamples]
+                return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
             elif r == 0 and self.display == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
 
@@ -134,10 +133,11 @@ class Coach():
                         total=bar.elapsed_td, eta=bar.eta_td)
                     bar.next()
 
+                bar.finish()
 
             if self.args.distributed_training:
                 # Create drive object
-                
+
                 drive = DriveAPI()
                 downloads_count = 0
                 downloads_threshold = 500 if self.skipFirstSelfPlay else 400
@@ -163,7 +163,7 @@ class Coach():
                         best_num = int(curr_file.split('.')[0][4:])
                         if best_num >= upload_number:
                             upload_number = best_num + 1
-                            
+
                     if best_found and downloads_count > downloads_threshold:
                         break
 
@@ -243,16 +243,12 @@ class Coach():
             while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
                 self.trainExamplesHistory.pop(0)
 
-            print("Ram used before clear itTrainEx: ", psutil.virtual_memory()[3] / 1000000000)
-            self.iterationTrainExamples.clear()
-            print("Ram used after clear itTrainEx: ", psutil.virtual_memory()[3] / 1000000000)
-
             # prune trainExamples to meet ram requirement
             ramCap = self.args.ram_cap
             while int(psutil.virtual_memory()[3] / 1000000000) > ramCap and len(self.trainExamplesHistory) > 13:
                 print(len(self.trainExamplesHistory))
                 self.trainExamplesHistory.pop(0)
-            
+
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
@@ -263,22 +259,22 @@ class Coach():
                 trainExamples.extend(e)
             shuffle(trainExamples)
 
-            print("Ram used before clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
-            self.trainExamplesHistory = []
-            print("Ram used after clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
-            
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             pmcts = MCTS(self.game, self.pnet, self.args)
 
             trainLog = self.nnet.train(trainExamples)
-            trainExamples = []
-            # clear trainExamples to save memory, reload when needed
+
+            # clear trainExamples after they are used
+            # print("Ram used before clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
+            self.trainExamplesHistory = []
+            self.iterationTrainExamples.clear()
+            trainExamples.clear()
+            # print("Ram used after clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
 
             self.p_loss_per_iteration.append(np.average(trainLog['P_LOSS'].to_numpy()))
             self.v_loss_per_iteration.append(np.average(trainLog['V_LOSS'].to_numpy()))
-            self.saveLosses()
             if self.keepLog:
                 trainLog.to_csv(self.logPath + 'ITER_{}_TRAIN_LOG.csv'.format(i))
 
@@ -334,40 +330,6 @@ class Coach():
             Pickler(f).dump(self.trainExamplesHistory)
         f.closed
 
-    def saveLosses(self):
-        #Save ploss, vloss, and winRate so graphs are consistent across training sessions
-        folder = self.args.checkpoint
-        if not os.path.exists(folder):
-                os.makedirs(folder)
-        vloss_filename = os.path.join(folder, "vlosses")
-        ploss_filename = os.path.join(folder, "plosses")
-        winRate_filename = os.path.join(folder, "winrates")
-        with open(vloss_filename, "wb+") as f:
-            Pickler(f).dump(self.v_loss_per_iteration)
-        f.closed
-        with open(ploss_filename, "wb+") as f:
-            Pickler(f).dump(self.p_loss_per_iteration)
-        f.closed
-        with open(winRate_filename, "wb+") as f:
-            Pickler(f).dump(self.winRate)
-        f.closed
-        
-
-    def loadDownloadedExamples(self, file_path):
-        examplesFile = file_path
-        with open(examplesFile, "rb") as f:
-            if len(self.iterationTrainExamples) == 0:
-                examples = Unpickler(f).load()
-                for i in range(len(examples)):
-                    self.iterationTrainExamples += examples[i]
-            else:
-                examples = Unpickler(f).load()
-                for i in range(len(examples)):
-                    self.iterationTrainExamples += examples[i]
-        self.skipFirstSelfPlay = False
-        f.closed
-        
-
     def loadTrainExamples(self):
         modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
         examplesFile = modelFile  # + ".examples"
@@ -383,27 +345,6 @@ class Coach():
             f.closed
             # examples based on the model were already collected (loaded)
             self.skipFirstSelfPlay = True
-    
-    def loadLosses(self):
-        #Load in ploss, vloss, and winRates from previous iterations so graphs are consistent
-        vlossFile = os.path.join(self.args.checkpoint, "vlosses")
-        plossFile = os.path.join(self.args.checkpoint, "plosses")
-        winrateFile = os.path.join(self.args.checkpoint, "winrates")
-        if not os.path.isfile(vlossFile) or not os.path.isfile(plossFile):
-            r = input("File with vloss or ploss not found. Continue? [y|n]")
-            if r != "y":
-                sys.exit()
-        else:
-            print("File with trainExamples found. Read it.")
-            with open(vlossFile, "rb") as f:
-                self.v_loss_per_iteration = Unpickler(f).load()
-            f.closed
-            with open(plossFile, "rb") as f:
-                self.p_loss_per_iteration = Unpickler(f).load()
-            f.closed
-            with open(winrateFile, "rb") as f:
-                self.winRate = Unpickler(f).load()
-            f.closed
 
     def loadDownloadedExamples(self, file_path):
         examplesFile = file_path

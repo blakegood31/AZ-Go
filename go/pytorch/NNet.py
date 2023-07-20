@@ -34,7 +34,7 @@ args = dotdict({
     'num_channels': 512,
 })
 
-# print(args)
+print(args)
 
 
 class NNetWrapper(NeuralNet):
@@ -48,8 +48,6 @@ class NNetWrapper(NeuralNet):
             self.nnet.to(device)
         else:
             self.nnet = GoNNet(game, args)
-
-            # distributed training
             self.nnet = nn.DataParallel(self.nnet)
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.nnet.to(device)
@@ -199,4 +197,5 @@ class NNetWrapper(NeuralNet):
         for k, v in state_dict.items():
             name = "module." + k  # add 'module.' of dataparallel, so it works with examples from plain model
             new_state_dict[name] = v
+
         self.nnet.load_state_dict(new_state_dict)
