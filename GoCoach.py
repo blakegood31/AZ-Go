@@ -132,15 +132,17 @@ class Coach():
                 print(f"##### Iteration {i} Distributed Training #####")
 
                 if i == 1:
+                    first_iteration_num_games = int(self.args.numEps / 20)
+
                     # on first iteration, play X games, so a model can be updated to the drive before using the drive
-                    print(f"First iteration. Play {int(self.args.numEps / 200)} self play games, so there is a model to upload to Google Drive.")
+                    print(f"First iteration. Play {first_iteration_num_games} self play games, so there is a model to upload to Google Drive.")
 
                     self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                     eps_time = AverageMeter()
                     bar = Bar('Self Play', max=self.args.numEps)
                     end = time.time()
 
-                    for eps in range(int(self.args.numEps / 200)):
+                    for eps in range(first_iteration_num_games):
                         # print("{}th Episode:".format(eps+1))
                         self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
                         self.currentEpisode = eps + 1
@@ -151,7 +153,7 @@ class Coach():
                         end = time.time()
 
                         bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                            eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
+                            eps=eps + 1, maxeps=first_iteration_num_games, et=eps_time.avg,
                             total=bar.elapsed_td, eta=bar.eta_td)
                         bar.next()
 
