@@ -38,6 +38,7 @@ class Coach():
         self.currentEpisode = 0
         self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
         self.NetType = NetType
+        self.canonicalHistory = []
 
     def executeEpisode(self):
         """
@@ -59,19 +60,28 @@ class Coach():
         board = self.game.getInitBoard()
         self.curPlayer = 1
         episodeStep = 0
+        x_boards = []
+        y_boards = []
+        c_boards = []
+        c_boards.append(np.ones((7,7)))
+        c_boards.append(np.zeros((7,7)))
+        for i in range(4):
+            x_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
+            y_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
         while True:
-
             episodeStep += 1
             if self.display == 1:
                 print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode,
                                                                                              episodeStep,
                                                                                              "White" if self.curPlayer == -1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
-            temp = int(episodeStep < self.args.tempThreshold)
+            player_board = c_boards[0] if self.curPlayer == 1 else c_boards[1]
+            canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces, player_board)
 
-            pi = self.mcts.getActionProb(canonicalBoard, temp=temp)
+            temp = int(episodeStep < self.args.tempThreshold)
+            pi = self.mcts.getActionProb(canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, temp=temp)
             # get different symmetries/rotations of the board
-            sym = self.game.getSymmetries(canonicalBoard, pi)
+            sym = self.game.getSymmetries(canonicalHistory, pi)
             for b, p in sym:
                 trainExamples.append([b, self.curPlayer, p, None])
             action = np.random.choice(len(pi), p=pi)
@@ -86,10 +96,13 @@ class Coach():
                 if self.display == 1:
                     print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
                                                                                         score[0], score[1]))
-
+                print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if score[0] > score[1] else 'White',
+                                                                                        score[0], score[1]))
+                
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
             elif r == 0 and self.display == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
+            x_boards, y_boards = y_boards, x_boards
 
     def learn(self):
         """
@@ -123,7 +136,6 @@ class Coach():
                     self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
                     self.currentEpisode = eps + 1
                     self.iterationTrainExamples += self.executeEpisode()
-
                     # bookkeeping + plot progress
                     eps_time.update(time.time() - end)
                     end = time.time()
@@ -248,7 +260,6 @@ class Coach():
             while int(psutil.virtual_memory()[3] / 1000000000) > ramCap and len(self.trainExamplesHistory) > 13:
                 print(len(self.trainExamplesHistory))
                 self.trainExamplesHistory.pop(0)
-
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
@@ -258,7 +269,8 @@ class Coach():
             for e in self.trainExamplesHistory:
                 trainExamples.extend(e)
             shuffle(trainExamples)
-
+            #print(len(self.trainExamplesHistory))
+            #print(len(trainExamples))
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
@@ -283,8 +295,8 @@ class Coach():
             nmcts = MCTS(self.game, self.nnet, self.args)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
-            arena = Arena(lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
-                          lambda x: np.argmax(nmcts.getActionProb(x, temp=0)), self.game, self.args.datetime,
+            arena = Arena(lambda x, y, z, a, b: np.argmax(pmcts.getActionProb(x, y, z, a, b, temp=0)),
+                          lambda x, y, z, a, b: np.argmax(nmcts.getActionProb(x, y, z, a, b, temp=0)), self.game, self.args.datetime, self.args,
                           display=display,
                           displayValue=self.display.value)
             pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)

@@ -10,6 +10,7 @@ except:
         from Game import Game
         from go.GoLogic import Board
 import numpy as np
+import copy
 
 
 class GoGame(Game):
@@ -63,7 +64,7 @@ class GoGame(Game):
     def getGameEnded(self, board, player,returnScore=False):
         # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
         # player = 1
-
+        #print("Board in gameEnded: ", board.pieces)
         winner = 0
         (score_black, score_white) = self.getScore(board)
         by_score = 0.5 * (board.n * board.n + board.komi)
@@ -74,20 +75,31 @@ class GoGame(Game):
             print("#### MCTS Recursive Base Case Triggered ####")
             winner = 1e-4
         elif len(board.history) > 1:
-            if (board.history[-1] is None and board.history[-2] is None\
-                    and player == -1):
+            if (board.history[-1] is None and board.history[-2] is None):
                 if score_black > score_white:
-                    winner = -1
+                    if player == 1:
+                        winner = 1
+                    else:
+                        winner = -1
                 elif score_white > score_black:
-                    winner = 1
+                    if player == -1:
+                        winner = 1
+                    else:
+                        winner = -1
                 else:
                     # Tie
                     winner = 1e-4
             elif score_black > by_score or score_white > by_score:
                 if score_black > score_white:
-                    winner = -1
+                    if player == 1:
+                        winner = 1
+                    else:
+                        winner = -1
                 elif score_white > score_black:
-                    winner = 1
+                    if player == -1:
+                        winner = 1
+                    else:
+                        winner = -1
                 else:
                     # Tie
                     winner = 1e-4
@@ -114,7 +126,9 @@ class GoGame(Game):
         # return state if player==1, else return -state if player==-1
         canonicalBoard=board.copy()
 
-        canonicalBoard.pieces= board.pieces* player
+        #canonicalBoard.pieces= board.pieces* player
+        if player == -1:
+            canonicalBoard.pieces = np.where(canonicalBoard.pieces == 1, -1, np.where(canonicalBoard.pieces == -1, 1, canonicalBoard.pieces))
         return canonicalBoard
 
     # modified
@@ -123,15 +137,19 @@ class GoGame(Game):
         assert(len(pi) == self.n**2 + 1)  # 1 for pass
         pi_board = np.reshape(pi[:-1], (self.n, self.n))
         l = []
-        b_pieces = board.pieces
+        history_syms = []
+        #b_pieces = board.pieces
         for i in range(1, 5):
             for j in [True, False]:
-                newB = np.rot90(b_pieces, i)
-                newPi = np.rot90(pi_board, i)
-                if j:
-                    newB = np.fliplr(newB)
-                    newPi = np.fliplr(newPi)
-                l += [(newB, list(newPi.ravel()) + [pi[-1]])]
+                history_syms = []
+                for k in range(len(board)):
+                    newB = np.rot90(board[k], i)
+                    newPi = np.rot90(pi_board, i)
+                    if j:
+                        newB = np.fliplr(newB)
+                        newPi = np.fliplr(newPi)
+                    history_syms.append(newB)
+                l += [(history_syms, list(newPi.ravel()) + [pi[-1]])]
         return l
 
     def stringRepresentation(self, board):
@@ -151,6 +169,38 @@ class GoGame(Game):
 
         # return column + row (in form: 'aa', 'df', 'cd', etc.)
         return f'{coords[int(action / self.getBoardSize()[0])]}' + f'{coords[int(action % self.getBoardSize()[0])]}'
+
+    def getCanonicalHistory(self, x_boards, y_boards, canonicalBoard, player_board):
+        history = []
+
+        new_x = np.copy(canonicalBoard)
+
+        if -1 in canonicalBoard:
+            new_x[new_x == -1] = 0
+        else:
+            new_x = canonicalBoard
+
+        x_boards.append(new_x)
+
+        canonicalBoard = np.where(canonicalBoard == 1, -1, np.where(canonicalBoard == -1, 1, canonicalBoard))
+
+        new_y = np.copy(canonicalBoard)
+        if -1 in canonicalBoard:
+            new_y[new_y == -1] = 0
+        else:
+            new_y = canonicalBoard
+        y_boards.append(new_y)
+
+
+        x_boards = x_boards[1:]
+        y_boards = y_boards[1:]
+
+        for i in range(len(x_boards)-1, -1, -1):
+            history.append(x_boards[i])
+            history.append(y_boards[i])
+
+        history.append(player_board)
+        return history, x_boards, y_boards
 
 
 def display(board):

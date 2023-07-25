@@ -7,7 +7,7 @@ class Arena():
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game, datetime, display=None, displayValue=0):
+    def __init__(self, player1, player2, game, datetime, args, display=None, displayValue=0):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -25,6 +25,7 @@ class Arena():
         self.display = display
         self.displayValue = displayValue
         self.datetime = datetime
+        self.args = args
 
     def playGame(self, verbose=True):
         """
@@ -41,6 +42,14 @@ class Arena():
         board = self.game.getInitBoard()
         it = 0
         action_history = []
+        x_boards = []
+        y_boards = []
+        c_boards = []
+        c_boards.append(np.ones((7,7)))
+        c_boards.append(np.zeros((7,7)))
+        for i in range(4):
+            x_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
+            y_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
         while self.game.getGameEnded(board, curPlayer) == 0:
             it += 1
             if verbose:
@@ -50,8 +59,11 @@ class Arena():
                     print("\nTurn ", str(it), "Player ", str(curPlayer))
                     print(self.display(board))
                     print(f"Current score: b {score[0]}, W {score[1]}")
-
-            action = players[curPlayer + 1](self.game.getCanonicalForm(board, curPlayer))
+            canonicalBoard = self.game.getCanonicalForm(board, curPlayer)
+            player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
+            canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces, player_board)
+            #print("History used to make move: ", canonicalHistory)
+            action = players[curPlayer + 1](canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, )
             player_name = "B" if curPlayer == 1 else "W"
             action_history.append(f";{player_name}[{self.game.action_space_to_GTP(action)}]")
 
@@ -61,6 +73,7 @@ class Arena():
                 print(action)
                 # assert valids[action] >0
             board, curPlayer = self.game.getNextState(board, curPlayer, action)
+            x_boards, y_boards = y_boards, x_boards
 
         if verbose:
             # assert(self.display)

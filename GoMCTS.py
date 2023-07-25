@@ -3,7 +3,7 @@ import sys
 
 import numpy as np
 import time
-
+import copy
 try:
     from .go.GoGame import display
 except:
@@ -39,7 +39,7 @@ class MCTS():
         self.Es = {}  # stores game.getGameEnded ended for board s
         self.Vs = {}  # stores game.getValidMoves for board s
 
-    def getActionProb(self, canonicalBoard, temp=1):
+    def getActionProb(self, canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, temp=1):
         """
         This function performs numMCTSSims simulations of MCTS starting from
         canonicalBoard.
@@ -49,11 +49,8 @@ class MCTS():
                    proportional to Nsa[(s,a)]**(1./temp)
         """
 
-        # display(canonicalBoard)
-
-        # print('current sim numbers:{}'.format(max(self.args.numMCTSSims,self.smartSimNum)))
         for i in range(min(self.args.numMCTSSims, self.smartSimNum)):
-            self.search(canonicalBoard)
+            self.search(canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, 1)
 
         s = self.game.stringRepresentation(canonicalBoard)
 
@@ -118,7 +115,7 @@ class MCTS():
 
         return probs * valids
 
-    def search(self, canonicalBoard):
+    def search(self, canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, calls):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -137,17 +134,18 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-        # print("doing mcts on board:")
-        # display(canonicalBoard)
+        if calls > 500:
+            print("#### MCTS Recursive Base Case Triggered ####")
+            return 1e-4
 
-        gameEnd = self.game.getGameEnded(canonicalBoard, 1)
-        if gameEnd != 0:
-            return -gameEnd
+        if calls > 1:
+            canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(copy.deepcopy(x_boards), copy.deepcopy(y_boards), canonicalBoard.pieces, player_board)
+
         s = self.game.stringRepresentation(canonicalBoard)
 
         if s not in self.Ps:
-            # print("leaf node")
-            self.Ps[s], v = self.nnet.predict(canonicalBoard.pieces)
+            #print("leaf node")
+            self.Ps[s], v = self.nnet.predict(canonicalHistory) #changed from board.pieces
 
             valids = self.game.getValidMoves(canonicalBoard, 1)
             self.Ps[s] = self.Ps[s] * valids  # masking invalid moves
@@ -165,6 +163,17 @@ class MCTS():
 
             self.Vs[s] = valids
             self.Ns[s] = 0
+
+            #Return game result if leaf node is terminal state 
+            if 1 in player_board:
+                perspective = 1
+            else:
+                perspective = -1
+
+            gameEnd = self.game.getGameEnded(canonicalBoard, perspective)
+            if gameEnd != 0:
+                return -gameEnd
+
             return -v
 
         valids = self.Vs[s]
@@ -223,7 +232,16 @@ class MCTS():
 
         next_s = self.game.getCanonicalForm(next_s, next_player)
 
-        v = self.search(next_s)
+        if 1 in player_board:
+            player_board = np.zeros((7,7))
+        else:
+            player_board = np.ones((7,7))
+
+        calls += 1
+        x_boards, y_boards = y_boards, x_boards
+        
+        v = self.search(next_s, canonicalHistory, x_boards, y_boards, player_board, calls)
+        
 
         if (s, a) in self.Qsa:
             assert (valids[a] != 0)

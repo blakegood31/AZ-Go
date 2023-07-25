@@ -43,9 +43,9 @@ class NNetWrapper(NeuralNet):
         if t == 'RES':
             netMkr = NetMaker(game, args)
             self.nnet = netMkr.makeNet()
-            self.nnet = nn.DataParallel(self.nnet)
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.nnet.to(device)
+            #self.nnet = nn.DataParallel(self.nnet)
+            #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            #self.nnet.to(device)
         else:
             self.nnet = GoNNet(game, args)
             self.nnet = nn.DataParallel(self.nnet)
@@ -91,6 +91,12 @@ class NNetWrapper(NeuralNet):
             while batch_idx < int(len(examples) / batch_size):
                 sample_ids = np.random.randint(len(examples), size=batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
+                #Convert board histories to stacks as defined in paper
+                temp_boards = list(boards)
+                for i in range(len(temp_boards)):
+                    temp_boards[i] = np.stack(temp_boards[i])
+                boards = tuple(temp_boards)
+                
                 boards = torch.FloatTensor(np.array(boards).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
@@ -148,15 +154,20 @@ class NNetWrapper(NeuralNet):
 
         return pd.DataFrame(data=trainLog)
 
-    def predict(self, board):
+    def predict(self, board_list):
         """
         board: np array with board
         """
         # preparing input
+        board = np.stack(board_list)
+        #print("stack length: ", len(board))
         board = torch.FloatTensor(board.astype(np.float64))
+        #print("stack length2: ", len(board))
         if args.cuda: board = board.contiguous().cuda()
         board = Variable(board, requires_grad=False)
-        board = board.view(1, self.board_x, self.board_y)
+        #print("stack length3: ", len(board))
+        board = board.view(9, self.board_x, self.board_y)
+        #print("stack length4: ", len(board))
 
         self.nnet.eval()
 

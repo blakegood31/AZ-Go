@@ -99,23 +99,24 @@ class AlphaNet(ResNet):
         self.action_size = game.getActionSize()
         self.args = args
         outputShift=1 if self.board_x in [6,7,11] else 4
-        self.inplanes = 64
+        self.inplanes = 128 #changed from 64
 
         super(ResNet, self).__init__()
 
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=5, stride=1, padding=2,
+        self.conv1 = nn.Conv2d(9, 128, kernel_size=5, stride=1, padding=2,
                                bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = nn.BatchNorm2d(128)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.MaxPool2d(kernel_size=5, stride=1, padding=2)
 
-        self.layer1 = self._make_layer(block, 64, layers[0])
-        self.layer2 = self._make_layer(block, 128, layers[1], stride=2)
-        self.layer3 = self._make_layer(block, 256, layers[2], stride=2)
-        self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
-        self.avgpool = nn.AvgPool2d(2, stride=1)
-        self.fc_p= nn.Linear(512 * block.expansion*outputShift,self.action_size)
-        self.fc_v=nn.Linear(512* block.expansion*outputShift,1)
+        self.layer1 = self._make_layer(block, 128, layers[0], stride=1)
+        self.layer2 = self._make_layer(block, 128, layers[1]) #stride = 2
+        self.layer3 = self._make_layer(block, 128, layers[2])
+        self.layer4 = self._make_layer(block, 128, layers[3])
+        self.avgpool = nn.AvgPool2d(3, stride=1) #changed from 2
+        #self.avgpool = nn.AdaptiveAvgPool2d() #changed from 2
+        self.fc_p= nn.Linear(3200 * block.expansion*outputShift,self.action_size) #changed from 512*block.expansion*outputShift, self.action_size
+        self.fc_v= nn.Linear(3200 * block.expansion*outputShift,1)
+        
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -144,26 +145,35 @@ class AlphaNet(ResNet):
 
 
     def forward(self, x):
-        x= x.view(-1, 1, self.board_x, self.board_y)
-
+        #print("forward")
+        x= x.view(-1, 9, self.board_x, self.board_y)
+        #print("Before conv1:", x.size())
         x = self.conv1(x)
+        #print("After conv1:", x.size())
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x)
 
         x = self.layer1(x)
+        #print("After layer1:", x.size())
         x = self.layer2(x)
+        #print("After layer2:", x.size())
         x = self.layer3(x)
+        #print("After layer3:", x.size())
         x = self.layer4(x)
+        #print("After layer4:", x.size())
 
         try:
             x = self.avgpool(x)
         except:
             pass
+        #print("After avgpool:", x.size())
         
         x = x.view(x.size(0), -1)
+        #print("After view:", x.size())
         p = self.fc_p(x)
         v = self.fc_v(x)
+        #print("After p:", p.size())
+        #print("After v:", v.size())
         return F.log_softmax(p,dim=1), F.tanh(v)
 
 class AlphaNetMaker:
