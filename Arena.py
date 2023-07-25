@@ -2,6 +2,7 @@ import numpy as np
 from pytorch_classification.utils import Bar, AverageMeter
 import time
 
+
 class Arena():
     """
     An Arena class where any 2 agents can be pit against each other.
@@ -45,8 +46,8 @@ class Arena():
         x_boards = []
         y_boards = []
         c_boards = []
-        c_boards.append(np.ones((7,7)))
-        c_boards.append(np.zeros((7,7)))
+        c_boards.append(np.ones((7, 7)))
+        c_boards.append(np.zeros((7, 7)))
         for i in range(4):
             x_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
             y_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
@@ -61,8 +62,9 @@ class Arena():
                     print(f"Current score: b {score[0]}, W {score[1]}")
             canonicalBoard = self.game.getCanonicalForm(board, curPlayer)
             player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
-            canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces, player_board)
-            #print("History used to make move: ", canonicalHistory)
+            canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards,
+                                                                                 canonicalBoard.pieces, player_board)
+            # print("History used to make move: ", canonicalHistory)
             action = players[curPlayer + 1](canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, )
             player_name = "B" if curPlayer == 1 else "W"
             action_history.append(f";{player_name}[{self.game.action_space_to_GTP(action)}]")
@@ -122,13 +124,16 @@ class Arena():
             eps += 1
             eps_time.update(time.time() - end)
             end = time.time()
-            bar.suffix  = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps, maxeps=maxeps, et=eps_time.avg,
-                                                                                                       total=bar.elapsed_td, eta=bar.eta_td)
+            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps,
+                                                                                                         maxeps=maxeps,
+                                                                                                         et=eps_time.avg,
+                                                                                                         total=bar.elapsed_td,
+                                                                                                         eta=bar.eta_td)
             bar.next()
 
         self.player1, self.player2 = self.player2, self.player1
 
-        if(originalNum%2 == 1):
+        if (originalNum % 2 == 1):
             num += 1
 
         for _ in range(num):
@@ -145,10 +150,10 @@ class Arena():
             eps_time.update(time.time() - end)
             end = time.time()
             bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps,
-                                                                                                       maxeps=maxeps,
-                                                                                                       et=eps_time.avg,
-                                                                                                       total=bar.elapsed_td,
-                                                                                                       eta=bar.eta_td)
+                                                                                                         maxeps=maxeps,
+                                                                                                         et=eps_time.avg,
+                                                                                                         total=bar.elapsed_td,
+                                                                                                         eta=bar.eta_td)
             bar.next()
 
         bar.finish()

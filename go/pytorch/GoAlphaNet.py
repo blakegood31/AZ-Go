@@ -22,7 +22,6 @@ def conv3x3(in_planes, out_planes, stride=1):
                      padding=1, bias=False)
 
 
-
 class AlphaBottleneck(nn.Module):
     expansion = 4
 
@@ -61,8 +60,10 @@ class AlphaBottleneck(nn.Module):
 
         return out
 
+
 class AlphaBlock(nn.Module):
     expansion = 1
+
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(AlphaBlock, self).__init__()
         self.conv1 = conv3x3(inplanes, planes, stride)
@@ -93,13 +94,13 @@ class AlphaBlock(nn.Module):
 
 
 class AlphaNet(ResNet):
-    def __init__(self, game,args,layers):
-        block=AlphaBlock
+    def __init__(self, game, args, layers):
+        block = AlphaBlock
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
         self.args = args
-        outputShift=1 if self.board_x in [6,7,11] else 4
-        self.inplanes = 128 #changed from 64
+        outputShift = 1 if self.board_x in [6, 7, 11] else 4
+        self.inplanes = 128  # changed from 64
 
         super(ResNet, self).__init__()
 
@@ -109,14 +110,14 @@ class AlphaNet(ResNet):
         self.relu = nn.ReLU(inplace=True)
 
         self.layer1 = self._make_layer(block, 128, layers[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, layers[1]) #stride = 2
+        self.layer2 = self._make_layer(block, 128, layers[1])  # stride = 2
         self.layer3 = self._make_layer(block, 128, layers[2])
         self.layer4 = self._make_layer(block, 128, layers[3])
-        self.avgpool = nn.AvgPool2d(3, stride=1) #changed from 2
-        #self.avgpool = nn.AdaptiveAvgPool2d() #changed from 2
-        self.fc_p= nn.Linear(3200 * block.expansion*outputShift,self.action_size) #changed from 512*block.expansion*outputShift, self.action_size
-        self.fc_v= nn.Linear(3200 * block.expansion*outputShift,1)
-        
+        self.avgpool = nn.AvgPool2d(3, stride=1)  # changed from 2
+        # self.avgpool = nn.AdaptiveAvgPool2d() #changed from 2
+        self.fc_p = nn.Linear(3200 * block.expansion * outputShift,
+                              self.action_size)  # changed from 512*block.expansion*outputShift, self.action_size
+        self.fc_v = nn.Linear(3200 * block.expansion * outputShift, 1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -143,44 +144,45 @@ class AlphaNet(ResNet):
 
         return nn.Sequential(*layers)
 
-
     def forward(self, x):
-        #print("forward")
-        x= x.view(-1, 9, self.board_x, self.board_y)
-        #print("Before conv1:", x.size())
+        # print("forward")
+        x = x.view(-1, 9, self.board_x, self.board_y)
+        # print("Before conv1:", x.size())
         x = self.conv1(x)
-        #print("After conv1:", x.size())
+        # print("After conv1:", x.size())
         x = self.bn1(x)
         x = self.relu(x)
 
         x = self.layer1(x)
-        #print("After layer1:", x.size())
+        # print("After layer1:", x.size())
         x = self.layer2(x)
-        #print("After layer2:", x.size())
+        # print("After layer2:", x.size())
         x = self.layer3(x)
-        #print("After layer3:", x.size())
+        # print("After layer3:", x.size())
         x = self.layer4(x)
-        #print("After layer4:", x.size())
+        # print("After layer4:", x.size())
 
         try:
             x = self.avgpool(x)
         except:
             pass
-        #print("After avgpool:", x.size())
-        
+        # print("After avgpool:", x.size())
+
         x = x.view(x.size(0), -1)
-        #print("After view:", x.size())
+        # print("After view:", x.size())
         p = self.fc_p(x)
         v = self.fc_v(x)
-        #print("After p:", p.size())
-        #print("After v:", v.size())
-        return F.log_softmax(p,dim=1), F.tanh(v)
+        # print("After p:", p.size())
+        # print("After v:", v.size())
+        return F.log_softmax(p, dim=1), F.tanh(v)
+
 
 class AlphaNetMaker:
-    def __init__(self,game,args):
-        self.n,self.n=game.getBoardSize()
-        self.game=game
-        self.args=args
+    def __init__(self, game, args):
+        self.n, self.n = game.getBoardSize()
+        self.game = game
+        self.args = args
+
     def makeNet(self):
         if self.n <= 11:
             print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 18))
@@ -189,25 +191,24 @@ class AlphaNetMaker:
             print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 34))
             return self.resnet34(self.game, self.args)
 
-    def resnet18(self,game,args,pretrained=False):
+    def resnet18(self, game, args, pretrained=False):
         """Constructs a ResNet-18 model.
 
         Args:
             pretrained (bool): If True, returns a model pre-trained on ImageNet
         """
-        model = AlphaNet(game,args, [2, 2, 2, 2])
+        model = AlphaNet(game, args, [2, 2, 2, 2])
         if pretrained:
             model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
         return model
 
-
-    def resnet34(self,game,args,pretrained=False, **kwargs):
+    def resnet34(self, game, args, pretrained=False, **kwargs):
         """Constructs a ResNet-34 model.
 
         Args:
             pretrained (bool): If True, returns a model pre-trained on ImageNet
         """
-        model = AlphaNet(game,args, [3, 4, 6, 3])
+        model = AlphaNet(game, args, [3, 4, 6, 3])
         if pretrained:
             model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
         return model

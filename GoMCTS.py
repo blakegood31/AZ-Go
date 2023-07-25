@@ -135,7 +135,7 @@ class MCTS():
             v: the negative of the value of the current canonicalBoard
         """
         if calls > 500:
-            print("#### MCTS Recursive Base Case Triggered ####")
+            # print("#### MCTS Recursive Base Case Triggered ####")
             return 1e-4
 
         if calls > 1:

@@ -22,8 +22,8 @@ tag = 'MCTS_SimModified'
 
 args = dotdict({
     # training parameters
-    'numIters': 200,
-    'numEps': 100,  # Number of complete self-play games to simulate during a new iteration.
+    'numIters': 1000,
+    'numEps': 2000,  # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
@@ -34,10 +34,12 @@ args = dotdict({
     'numItersForTrainExamplesHistory': 30,
 
     # customization
-    'load_model': True,
-    'distributed_training': False,  # use Google Drive for computing on multiple machines
+    'load_model': False,
+    'distributed_training': True,  # use Google Drive for computing on multiple machines
     'display': Display.DISPLAY_BAR,
     'ram_cap': 120,
+    'polling_games': 5,    # number of games to play during distributed training on local machine while
+                           # waiting for examples to upload to Google Drive
 
     # utility
     'datetime': datetime.now().strftime("%d-%m-%Y %H:%M"),

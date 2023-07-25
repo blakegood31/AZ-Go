@@ -54,19 +54,7 @@ class DriveAPI:
             with open('token.pickle', 'wb') as token:
                 pickle.dump(self.creds, token)
 
-        # Connect to the API service
-        self.service = build('drive', 'v3', credentials=self.creds)
-
-        # request a list of first N files or
-        # folders with name and id from the API.
-        results = self.service.files().list(
-            pageSize=1000, fields="files(id, name)").execute()
-        self.items = results.get('files', [])
-
-        # print a list of files
-        # print("First Item:",  items[1][0].id,"\n")
-        print(*self.items, sep="\n", end="\n\n")
-        print("done printing items")
+        self.update_file_list()
 
     def FileDownload(self, file_id, file_name):
         request = self.service.files().get_media(fileId=file_id)
@@ -123,3 +111,19 @@ class DriveAPI:
 
         except:
             pass
+
+    def update_file_list(self):
+        # Connect to the API service
+        self.service = build('drive', 'v3', credentials=self.creds)
+
+        # request a list of first N files or
+        # folders with name and id from the API.
+        results = self.service.files().list(
+            pageSize=1000, fields="files(id, name)").execute()
+        self.items = results.get('files', [])
+
+        # print a list of files
+        # print("First Item:",  items[1][0].id,"\n")
+        # print(*self.items, sep="\n", end="\n\n")
+        # print(f"{len(self.items)} Files Found on Drive")
+        # print("done printing items")

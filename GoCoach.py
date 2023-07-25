@@ -38,6 +38,7 @@ class Coach():
         self.currentEpisode = 0
         self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
         self.NetType = NetType
+        # TODO: Do we need this line? Doesn't seem to be used - HAL
         self.canonicalHistory = []
 
     def executeEpisode(self):
@@ -62,9 +63,7 @@ class Coach():
         episodeStep = 0
         x_boards = []
         y_boards = []
-        c_boards = []
-        c_boards.append(np.ones((7,7)))
-        c_boards.append(np.zeros((7,7)))
+        c_boards = [np.ones((7, 7)), np.zeros((7, 7))]
         for i in range(4):
             x_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
             y_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
@@ -96,9 +95,7 @@ class Coach():
                 if self.display == 1:
                     print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
                                                                                         score[0], score[1]))
-                print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if score[0] > score[1] else 'White',
-                                                                                        score[0], score[1]))
-                
+
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
             elif r == 0 and self.display == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
@@ -112,114 +109,128 @@ class Coach():
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
-        print('RAM Used start of learn (GB):', psutil.virtual_memory()[3] / 1000000000)
+        # print('RAM Used start of learn (GB):', psutil.virtual_memory()[3] / 1000000000)
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
+
+        # helper distributed variables
         upload_number = 1
-        append_downloads = False
+        new_model_accepted_in_previous_iteration = False
+
+        # setup
+        if self.args.distributed_training:
+            drive = DriveAPI(self.args.nettype, self.args.boardsize)
 
         if self.args.load_model:
             self.loadLosses()
 
+        # training loop
         for i in range(self.args.start_iter, self.args.numIters + 1):
             iterHistory['ITER'].append(i)
-            print(f"######## Iteration {i} ########")
-            # bookkeeping
-            # examples of the iteration
-            if not self.skipFirstSelfPlay or i > self.args.start_iter:
-                self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
-                eps_time = AverageMeter()
-                bar = Bar('Self Play', max=self.args.numEps)
-                end = time.time()
-
-                for eps in range(self.args.numEps):
-                    # print("{}th Episode:".format(eps+1))
-                    self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-                    self.currentEpisode = eps + 1
-                    self.iterationTrainExamples += self.executeEpisode()
-                    # bookkeeping + plot progress
-                    eps_time.update(time.time() - end)
-                    end = time.time()
-
-                    bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                        eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
-                        total=bar.elapsed_td, eta=bar.eta_td)
-                    bar.next()
-
-                bar.finish()
+            games_played_during_iteration = 0
 
             if self.args.distributed_training:
-                # Create drive object
+                print(f"##### Iteration {i} Distributed Training #####")
 
-                drive = DriveAPI(self.args.nettype, self.args.boardsize)
-                downloads_count = 0
-                downloads_threshold = 500 if self.skipFirstSelfPlay else 400
-                # print('RAM Used before download (GB):', psutil.virtual_memory()[3] / 1000000000)
-                # Get list of all files in Google Drive
-                files = []
-                for item in drive.items:
-                    name = item['name']
-                    files.append(name)
+                if i == 1:
+                    # on first iteration, play X games, so a model can be updated to the drive before using the drive
+                    print(f"First iteration. Play {int(self.args.numEps / 200)} self play games, so there is a model to upload to Google Drive.")
 
-                # Get list of files already downloaded from drive
-                checkpoint_dir = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/'
-                downloaded_files = [str(file) for file in os.listdir(checkpoint_dir) if file.startswith('drive_')]
+                    self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                    eps_time = AverageMeter()
+                    bar = Bar('Self Play', max=self.args.numEps)
+                    end = time.time()
 
-                # Find most recent batches of training examples
-                print("Checking for new files from drive")
-                best_found = False
-                for j in range(len(files)):
-                    curr_file = files[j]
-                    # Check what upload_num should be (used for model storage on drive)
-                    if curr_file.startswith('best'):
-                        best_found = True
-                        best_num = int(curr_file.split('.')[0][4:])
-                        if best_num >= upload_number:
-                            upload_number = best_num + 1
+                    for eps in range(int(self.args.numEps / 200)):
+                        # print("{}th Episode:".format(eps+1))
+                        self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
+                        self.currentEpisode = eps + 1
+                        self.iterationTrainExamples += self.executeEpisode()
 
-                    if best_found and downloads_count > downloads_threshold:
-                        break
+                        # bookkeeping + plot progress
+                        eps_time.update(time.time() - end)
+                        end = time.time()
 
-                    # Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
-                    if "drive_checkpoint" in curr_file:
-                        if not curr_file in downloaded_files:
-                            # downloads_count += 1
-                            # Download and store new file
-                            print("Downloading Train Examples: ", drive.items[j]['name'])
-                            try:
-                                drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
-                                file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
-                                self.loadDownloadedExamples(file_path)
+                        bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                            eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
+                            total=bar.elapsed_td, eta=bar.eta_td)
+                        bar.next()
 
-                                if os.path.getsize(file_path) < 1000000:
-                                    print(f"{curr_file} is a single game.")
-                                    downloads_count += 1
-                                else:
-                                    downloads_count += 5
+                    bar.finish()
+                    games_played_during_iteration = self.args.numEps
+                else:
+                    if not new_model_accepted_in_previous_iteration:
+                        # download most recent training examples from the drive (until numEps is hit or files run out)
+                        # previous examples are still valid training data
+                        print("New model not accepted in previous iteration. Downloading from drive.")
+                        games_played_during_iteration, upload_number = self.download_recent_games_from_google_drive(
+                            downloads_threshold=self.args.numEps, upload_number=upload_number)
+                    else:
+                        print("New model accepted in previous iteration. Start polling games.")
 
-                                append_downloads = True
-                            except:
-                                pass
-                        elif self.args.load_model:
-                            # downloads_count += 1
-                            file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
-                            self.loadDownloadedExamples(file_path)
+                    if games_played_during_iteration >= self.args.numEps:
+                        percent_complete(games_played_during_iteration, self.args.numEps,
+                                         title="Self Play + Distributed Training", label="Games")
 
-                            if os.path.getsize(file_path) < 1000000:
-                                print(f"{curr_file} is a single game.")
-                                downloads_count += 1
-                            else:
-                                downloads_count += 5
+                    polling_tracker = 1
+                    while games_played_during_iteration < self.args.numEps:
+                        # play games and download from drive until limit is reached
+                        print(f"There were not enough games on the drive. Starting polling session #{polling_tracker}.")
+                        total_time = 0
+                        for eps in range(self.args.polling_games):
+                            start = time.time()
+                            self.mcts = MCTS(self.game, self.nnet, self.args)
+                            self.iterationTrainExamples += self.executeEpisode()
+                            games_played_during_iteration += 1
 
-                            append_downloads = True
+                            end = time.time()
+                            total_time += round(end - start, 2)
+                            percent_complete(eps + 1, self.args.polling_games,
+                                             title="Polling Games", label="Games",
+                                             suffix=f"| Eps Time: {round(end - start, 2)} | Total Time: {round(total_time, 2)}")
 
-                del files
-                del downloaded_files
-                gc.collect()
-                # downloads_count = downloads_count * 5
-                if not self.skipFirstSelfPlay:
-                    downloads_count += self.args.numEps
+                        # after polling games are played, check drive and download as many "new" files as possible
+                        new_games, upload_number = self.download_recent_games_from_google_drive(
+                            downloads_threshold=self.args.numEps - games_played_during_iteration,
+                            upload_number=upload_number)
+                        games_played_during_iteration += new_games
+
+                        percent_complete(games_played_during_iteration, self.args.numEps,
+                                         title="Self Play + Distributed Training", label="Games")
+
+                        polling_tracker += 1
+
+                        # spacers to ensure bar printouts are correct
+                        print()
+                        print()
+
             else:
-                downloads_count = self.args.numEps
+                # normal (non-distributed) training loop
+                print(f"######## Iteration {i} Episode Play ########")
+                # bookkeeping
+                # examples of the iteration
+                if not self.skipFirstSelfPlay or i > self.args.start_iter:
+                    self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                    eps_time = AverageMeter()
+                    bar = Bar('Self Play', max=self.args.numEps)
+                    end = time.time()
+
+                    for eps in range(self.args.numEps):
+                        # print("{}th Episode:".format(eps+1))
+                        self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
+                        self.currentEpisode = eps + 1
+                        self.iterationTrainExamples += self.executeEpisode()
+
+                        # bookkeeping + plot progress
+                        eps_time.update(time.time() - end)
+                        end = time.time()
+
+                        bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
+                            eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
+                            total=bar.elapsed_td, eta=bar.eta_td)
+                        bar.next()
+
+                    bar.finish()
+                    games_played_during_iteration = self.args.numEps
 
             # Log how many games were added during each iteration
             file_name = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/Game_Counts.txt'
@@ -228,9 +239,10 @@ class Coach():
                 counts_file.close()
             counts_file = open(file_name, 'a')
             counts_file.write(
-                f"\n Number of games added to train examples during iteration #{i}: {downloads_count} games\n")
+                f"\n Number of games added to train examples during iteration #{i}: {games_played_during_iteration} games\n")
             counts_file.close()
 
+            # read trainExamples from local disk and use them for NN training
             if i != 1 or self.args.load_model:
                 new_train_examples = self.iterationTrainExamples
 
@@ -248,18 +260,20 @@ class Coach():
                 self.trainExamplesHistory.append(new_train_examples)
             else:
                 # save the iteration examples to the history
-                if not self.skipFirstSelfPlay or append_downloads:
+                if not self.skipFirstSelfPlay:
                     self.trainExamplesHistory.append(self.iterationTrainExamples)
 
             # prune trainExamples to meet args recommendation
             while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
+                print(f"Truncated trainExamplesHistory to {len(self.trainExamplesHistory)}. Length exceeded args limit.")
                 self.trainExamplesHistory.pop(0)
 
             # prune trainExamples to meet ram requirement
             ramCap = self.args.ram_cap
             while int(psutil.virtual_memory()[3] / 1000000000) > ramCap and len(self.trainExamplesHistory) > 13:
-                print(len(self.trainExamplesHistory))
+                print(f"Truncated trainExamplesHistory to {len(self.trainExamplesHistory)}. Length exceeded ram limit.")
                 self.trainExamplesHistory.pop(0)
+
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
@@ -269,8 +283,7 @@ class Coach():
             for e in self.trainExamplesHistory:
                 trainExamples.extend(e)
             shuffle(trainExamples)
-            #print(len(self.trainExamplesHistory))
-            #print(len(trainExamples))
+
             # training new network, keeping a copy of the old one
             self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
             self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
@@ -279,11 +292,9 @@ class Coach():
             trainLog = self.nnet.train(trainExamples)
 
             # clear trainExamples after they are used
-            # print("Ram used before clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
             self.trainExamplesHistory = []
             self.iterationTrainExamples.clear()
             trainExamples.clear()
-            # print("Ram used after clear trainExHis: ", psutil.virtual_memory()[3] / 1000000000)
 
             self.p_loss_per_iteration.append(np.average(trainLog['P_LOSS'].to_numpy()))
             self.v_loss_per_iteration.append(np.average(trainLog['V_LOSS'].to_numpy()))
@@ -305,6 +316,7 @@ class Coach():
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
             if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
                 print('REJECTING NEW MODEL')
+                new_model_accepted_in_previous_iteration = False
                 iterHistory['PITT_RESULT'].append('R')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
                 if i == 1 and self.args.distributed_training and not self.args.load_model:
@@ -313,6 +325,7 @@ class Coach():
 
             else:
                 print('ACCEPTING NEW MODEL')
+                new_model_accepted_in_previous_iteration = True
                 iterHistory['PITT_RESULT'].append('A')
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
@@ -338,7 +351,7 @@ class Coach():
             os.makedirs(folder)
         filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
         with open(filename, "wb+") as f:
-            print('RAM Used before dump (GB):', psutil.virtual_memory()[3] / 1000000000)
+            # print('RAM Used before dump (GB):', psutil.virtual_memory()[3] / 1000000000)
             Pickler(f).dump(self.trainExamplesHistory)
         f.closed
 
@@ -460,3 +473,100 @@ class Coach():
 
             sgf_file.write("\n)")
             sgf_file.close()
+
+    # downloads games from Google Drive with a limit and returns number of games downloaded
+    # and load them into self.iterationTrainExamples
+    def download_recent_games_from_google_drive(self, downloads_threshold, upload_number):
+        downloads_count = 0  # also used by counts_file to log number of games per iteration
+
+        # Create drive object
+        drive = DriveAPI(self.args.nettype, self.args.boardsize)
+        # downloads_threshold = self.args.numEps
+
+        # Get list of all files in Google Drive
+        files = []
+        for item in drive.items:
+            name = item['name']
+            files.append(name)
+
+        # Find most recent batches of training examples
+        best_found = False
+
+        for j in range(len(files)):
+            curr_file = files[j]
+
+            # Check what upload_num should be (used for model storage on drive)
+            if curr_file.startswith('best'):
+                best_found = True
+                best_num = int(curr_file.split('.')[0][4:])
+                if best_num >= upload_number:
+                    upload_number = best_num + 1
+
+            # there is lag between when a download is queued and finished
+            # add 5 to downloads_count here to trigger break statement on time
+            if best_found and downloads_count + 5 > downloads_threshold:
+                # print("Downloads threshold reached; downloads complete.")
+                break
+
+            # Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
+            if "drive_checkpoint" in curr_file:
+                # if not best_found:
+                try:
+                    drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
+                    file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
+                    self.loadDownloadedExamples(file_path)
+                    downloads_count += 5
+                    percent_complete(downloads_count, downloads_threshold, title="Google Drive Game Download", label="Games")
+                except:
+                    pass
+
+        del files
+        gc.collect()
+        print()
+        # print("Downloading from Drive Complete")
+        return downloads_count, upload_number
+
+
+# progress bar print out for updated bar progress
+def percent_complete(step, total_steps, bar_width=45, title="", label="", suffix="", print_perc=True):
+    import sys
+
+    # UTF-8 left blocks: 1, 1/8, 1/4, 3/8, 1/2, 5/8, 3/4, 7/8
+    utf_8s = ["█", "▏", "▎", "▍", "▌", "▋", "▊", "█"]
+    perc = 100 * float(step) / float(total_steps)
+    max_ticks = bar_width * 8
+    num_ticks = int(round(perc / 100 * max_ticks))
+    full_ticks = num_ticks / 8  # Number of full blocks
+    part_ticks = num_ticks % 8  # Size of partial block (array index)
+
+    disp = bar = ""  # Blank out variables
+    bar += utf_8s[0] * int(full_ticks)  # Add full blocks into Progress Bar
+
+    # If part_ticks is zero, then no partial block, else append part char
+    if part_ticks > 0:
+        bar += utf_8s[part_ticks]
+
+    # Pad Progress Bar with fill character
+    bar += "▒" * int((max_ticks / 8 - float(num_ticks) / 8.0))
+
+    if len(title) > 0:
+        disp = title + ": "  # Optional title to progress display
+
+    # Print progress bar in green: https://stackoverflow.com/a/21786287/6929343
+    disp += "\x1b[0;32m"  # Color Green
+    disp += bar  # Progress bar to progress display
+    disp += "\x1b[0m"  # Color Reset
+    if print_perc:
+        # If requested, append percentage complete to progress display
+        if perc > 100.0:
+            perc = 100.0  # Fix "100.04 %" rounding error
+        disp += " {:6.2f}".format(perc) + " %"
+    disp += f"   {step}/{total_steps} {label} {suffix}"
+
+    # Output to terminal repetitively over the same line using '\r'.
+    sys.stdout.write("\r" + disp)
+    sys.stdout.flush()
+
+    # print newline when finished
+    if step >= total_steps:
+        print()
