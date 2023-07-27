@@ -9,10 +9,12 @@ from pickle import Pickler, Unpickler
 from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
-from DriveAPI import DriveAPI
 import psutil
 import gc
 import os
+import paramiko
+from scp import SCPClient
+import glob
 
 
 class Coach():
@@ -116,10 +118,6 @@ class Coach():
         upload_number = 1
         new_model_accepted_in_previous_iteration = False
 
-        # setup
-        if self.args.distributed_training:
-            drive = DriveAPI(self.args.nettype, self.args.boardsize)
-
         if self.args.load_model:
             self.loadLosses()
 
@@ -128,14 +126,14 @@ class Coach():
             iterHistory['ITER'].append(i)
             games_played_during_iteration = 0
 
-            if self.args.distributed_training:
+            if self.args.distributed_training and not self.args.load_model:
                 print(f"##### Iteration {i} Distributed Training #####")
 
-                if i == 1:
+                if i == 1 and not self.args.load_model:
                     first_iteration_num_games = int(self.args.numEps / 20)
 
-                    # on first iteration, play X games, so a model can be updated to the drive before using the drive
-                    print(f"First iteration. Play {first_iteration_num_games} self play games, so there is a model to upload to Google Drive.")
+                    # on first iteration, play X games, so a model can be updated to lambda
+                    print(f"First iteration. Play {first_iteration_num_games} self play games, so there is a model to upload to lambda.")
 
                     self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
                     eps_time = AverageMeter()
@@ -158,14 +156,17 @@ class Coach():
                         bar.next()
 
                     bar.finish()
-                    games_played_during_iteration = self.args.numEps
+                    games_played_during_iteration = first_iteration_num_games
+
                 else:
                     if not new_model_accepted_in_previous_iteration:
                         # download most recent training examples from the drive (until numEps is hit or files run out)
                         # previous examples are still valid training data
-                        print("New model not accepted in previous iteration. Downloading from drive.")
-                        games_played_during_iteration, upload_number = self.download_recent_games_from_google_drive(
-                            downloads_threshold=self.args.numEps, upload_number=upload_number)
+                        print("New model not accepted in previous iteration. Downloading from lambda.")
+                        games_played_during_iteration += self.scan_examples_folder_and_load(game_limit=self.args.numEps)
+                        percent_complete(games_played_during_iteration, self.args.numEps,
+                                     title="Lambda Downloaded Games", label="Games")
+
                     else:
                         print("New model accepted in previous iteration. Start polling games.")
 
@@ -176,7 +177,7 @@ class Coach():
                     polling_tracker = 1
                     while games_played_during_iteration < self.args.numEps:
                         # play games and download from drive until limit is reached
-                        print(f"There were not enough games on the drive. Starting polling session #{polling_tracker}.")
+                        print(f"Starting polling session #{polling_tracker}.")
                         total_time = 0
                         for eps in range(self.args.polling_games):
                             start = time.time()
@@ -191,10 +192,13 @@ class Coach():
                                              suffix=f"| Eps Time: {round(end - start, 2)} | Total Time: {round(total_time, 2)}")
 
                         # after polling games are played, check drive and download as many "new" files as possible
-                        new_games, upload_number = self.download_recent_games_from_google_drive(
-                            downloads_threshold=self.args.numEps - games_played_during_iteration,
-                            upload_number=upload_number)
-                        games_played_during_iteration += new_games
+                        num_downloads = self.scan_examples_folder_and_load(game_limit=self.args.numEps - games_played_during_iteration)
+                        percent_complete(num_downloads, self.args.numEps - games_played_during_iteration,
+                                         title="Lambda Downloaded Games", label="Games")
+
+                        print()
+
+                        games_played_during_iteration += num_downloads
 
                         percent_complete(games_played_during_iteration, self.args.numEps,
                                          title="Self Play + Distributed Training", label="Games")
@@ -322,8 +326,9 @@ class Coach():
                 iterHistory['PITT_RESULT'].append('R')
                 self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
                 if i == 1 and self.args.distributed_training and not self.args.load_model:
-                    upload_path = os.path.join(self.args.checkpoint, 'temp.pth.tar')
-                    drive.FileUpload(upload_path, upload_number)
+                    new_model_accepted_in_previous_iteration = True
+                    self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
+                    self.send_model_to_server(username="username", server_address="server_address", remote_path="path")
 
             else:
                 print('ACCEPTING NEW MODEL')
@@ -332,9 +337,9 @@ class Coach():
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
                 self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
                 if self.args.distributed_training:
-                    upload_path = os.path.join(self.args.checkpoint, 'best.pth.tar')
-                    drive.FileUpload(upload_path, upload_number)
+                    self.send_model_to_server(username="username", server_address="server_address", remote_path="path")
                     upload_number += 1
+                    self.wipe_examples_folder()
 
             pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
 
@@ -373,7 +378,7 @@ class Coach():
             # examples based on the model were already collected (loaded)
             self.skipFirstSelfPlay = True
 
-    def loadDownloadedExamples(self, file_path):
+    def load_examples_from_path(self, file_path):
         examplesFile = file_path
         with open(examplesFile, "rb") as f:
             try:
@@ -476,60 +481,51 @@ class Coach():
             sgf_file.write("\n)")
             sgf_file.close()
 
-    # downloads games from Google Drive with a limit and returns number of games downloaded
-    # and load them into self.iterationTrainExamples
-    def download_recent_games_from_google_drive(self, downloads_threshold, upload_number):
-        downloads_count = 0  # also used by counts_file to log number of games per iteration
+    ##### local distributed training helper functions ######
+    def createSSHClient(self, server, port, user, password):
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(server, port, user, password)
+        return client
 
-        # Create drive object
-        drive = DriveAPI(self.args.nettype, self.args.boardsize)
-        # downloads_threshold = self.args.numEps
+    # doesn't currently rename the file... which I think is fine
+    def send_model_to_server(self, username, server_address, remote_path):
+        local_path = os.path.join(self.args.checkpoint, 'best.pth.tar')
+        ssh = self.createSSHClient(server_address, 22, username, "password")
+        scp = SCPClient(ssh.get_transport())
+        scp.put(local_path, remote_path)
+        print("New model uploaded.")
 
-        # Get list of all files in Google Drive
-        files = []
-        for item in drive.items:
-            name = item['name']
-            files.append(name)
+    def scan_examples_folder_and_load(self, game_limit):
+        files = glob.glob("/")
 
-        # Find most recent batches of training examples
-        best_found = False
+        game_count = 0
 
-        for j in range(len(files)):
-            curr_file = files[j]
-
-            # Check what upload_num should be (used for model storage on drive)
-            if curr_file.startswith('best'):
-                best_found = True
-                best_num = int(curr_file.split('.')[0][4:])
-                if best_num >= upload_number:
-                    upload_number = best_num + 1
-
-            # there is lag between when a download is queued and finished
-            # add 5 to downloads_count here to trigger break statement on time
-            if best_found and downloads_count + 5 > downloads_threshold:
-                # print("Downloads threshold reached; downloads complete.")
+        for f in files:
+            # game_count >= game_limit, STOP
+            if game_count >= game_limit:
+                print("game limit reached")
                 break
 
-            # Check if file is a checkpoint and if it's been downloaded (stop downloading once latest model has been reached)
-            if "drive_checkpoint" in curr_file:
-                # if not best_found:
-                try:
-                    drive.FileDownload(drive.items[j]['id'], drive.items[j]['name'])
-                    file_path = os.path.join(self.args.checkpoint, drive.items[j]['name'])
-                    self.loadDownloadedExamples(file_path)
-                    downloads_count += 5
-                    percent_complete(downloads_count, downloads_threshold, title="Google Drive Game Download", label="Games")
-                except:
-                    pass
+            # load in the file
+            self.load_examples_from_path(f)
 
-        del files
-        gc.collect()
-        print()
-        # print("Downloading from Drive Complete")
-        return downloads_count, upload_number
+            # delete file from storage
+            os.remove(f)
 
+            # iterate game_count
+            game_count += 1
 
-# progress bar print out for updated bar progress
+        return game_count
+
+    def wipe_examples_folder(self):
+        files = glob.glob("/")
+
+        for f in files:
+            os.remove(f)
+
+    # progress bar print out for updated bar progress
 def percent_complete(step, total_steps, bar_width=45, title="", label="", suffix="", print_perc=True):
     import sys
 

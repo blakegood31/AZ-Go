@@ -23,7 +23,7 @@ tag = 'MCTS_SimModified'
 args = dotdict({
     # training parameters
     'numIters': 1000,
-    'numEps': 2000,  # Number of complete self-play games to simulate during a new iteration.
+    'numEps': 500,  # Number of complete self-play games to simulate during a new iteration.
     'tempThreshold': 15,
     'updateThreshold': 0.54,
     # During arena playoff, new neural net will be accepted if threshold or more of games are won.
@@ -31,7 +31,7 @@ args = dotdict({
     'numMCTSSims': 150,  # Number of games moves for MCTS to simulate.
     'arenaCompare': 50,  # Number of games to play during arena play to determine if new net will be accepted.
     'cpuct': 1.0,
-    'numItersForTrainExamplesHistory': 30,
+    'numItersForTrainExamplesHistory': 5,
 
     # customization
     'load_model': False,
