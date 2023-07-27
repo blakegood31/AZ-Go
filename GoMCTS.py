@@ -13,7 +13,7 @@ except:
         from go.GoGame import display
 
 
-class MCTS():
+class MCTS:
     """
     This class handles the MCTS tree.
     """

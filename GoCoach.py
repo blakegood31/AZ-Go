@@ -10,14 +10,14 @@ from random import shuffle
 import pandas as pd
 import matplotlib.pyplot as plt
 import psutil
-import gc
 import os
 import paramiko
 from scp import SCPClient
 import glob
+from utils import status_bar
 
 
-class Coach():
+class Coach:
     """
     This class executes the self-play + learning. It uses the functions defined
     in Game and NeuralNet. args are specified in main.py.
@@ -40,8 +40,6 @@ class Coach():
         self.currentEpisode = 0
         self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
         self.NetType = NetType
-        # TODO: Do we need this line? Doesn't seem to be used - HAL
-        self.canonicalHistory = []
 
     def executeEpisode(self):
         """
@@ -136,26 +134,20 @@ class Coach():
                     print(f"First iteration. Play {first_iteration_num_games} self play games, so there is a model to upload to lambda.")
 
                     self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
-                    eps_time = AverageMeter()
-                    bar = Bar('Self Play', max=self.args.numEps)
-                    end = time.time()
 
+                    total_time = 0
                     for eps in range(first_iteration_num_games):
-                        # print("{}th Episode:".format(eps+1))
+                        start = time.time()
                         self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-                        self.currentEpisode = eps + 1
                         self.iterationTrainExamples += self.executeEpisode()
 
-                        # bookkeeping + plot progress
-                        eps_time.update(time.time() - end)
+                        # update bar print out
                         end = time.time()
+                        total_time += round(end - start, 2)
+                        status_bar(self.currentEpisode, first_iteration_num_games,
+                                   title="Polling Games", label="Games",
+                                   suffix=f"| Eps Time: {round(end - start, 2)} | Total Time: {round(total_time, 2)}")
 
-                        bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                            eps=eps + 1, maxeps=first_iteration_num_games, et=eps_time.avg,
-                            total=bar.elapsed_td, eta=bar.eta_td)
-                        bar.next()
-
-                    bar.finish()
                     games_played_during_iteration = first_iteration_num_games
 
                 else:
@@ -164,14 +156,14 @@ class Coach():
                         # previous examples are still valid training data
                         print("New model not accepted in previous iteration. Downloading from lambda.")
                         games_played_during_iteration += self.scan_examples_folder_and_load(game_limit=self.args.numEps)
-                        percent_complete(games_played_during_iteration, self.args.numEps,
+                        status_bar(games_played_during_iteration, self.args.numEps,
                                      title="Lambda Downloaded Games", label="Games")
 
                     else:
                         print("New model accepted in previous iteration. Start polling games.")
 
                     if games_played_during_iteration >= self.args.numEps:
-                        percent_complete(games_played_during_iteration, self.args.numEps,
+                        status_bar(games_played_during_iteration, self.args.numEps,
                                          title="Self Play + Distributed Training", label="Games")
 
                     polling_tracker = 1
@@ -187,20 +179,20 @@ class Coach():
 
                             end = time.time()
                             total_time += round(end - start, 2)
-                            percent_complete(eps + 1, self.args.polling_games,
+                            status_bar(eps + 1, self.args.polling_games,
                                              title="Polling Games", label="Games",
                                              suffix=f"| Eps Time: {round(end - start, 2)} | Total Time: {round(total_time, 2)}")
 
                         # after polling games are played, check drive and download as many "new" files as possible
                         num_downloads = self.scan_examples_folder_and_load(game_limit=self.args.numEps - games_played_during_iteration)
-                        percent_complete(num_downloads, self.args.numEps - games_played_during_iteration,
+                        status_bar(num_downloads, self.args.numEps - games_played_during_iteration,
                                          title="Lambda Downloaded Games", label="Games")
 
                         print()
 
                         games_played_during_iteration += num_downloads
 
-                        percent_complete(games_played_during_iteration, self.args.numEps,
+                        status_bar(games_played_during_iteration, self.args.numEps,
                                          title="Self Play + Distributed Training", label="Games")
 
                         polling_tracker += 1
@@ -223,7 +215,7 @@ class Coach():
                     for eps in range(self.args.numEps):
                         # print("{}th Episode:".format(eps+1))
                         self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-                        self.currentEpisode = eps + 1
+                        currentEpisode = eps + 1
                         self.iterationTrainExamples += self.executeEpisode()
 
                         # bookkeeping + plot progress
@@ -524,47 +516,3 @@ class Coach():
 
         for f in files:
             os.remove(f)
-
-    # progress bar print out for updated bar progress
-def percent_complete(step, total_steps, bar_width=45, title="", label="", suffix="", print_perc=True):
-    import sys
-
-    # UTF-8 left blocks: 1, 1/8, 1/4, 3/8, 1/2, 5/8, 3/4, 7/8
-    utf_8s = ["█", "▏", "▎", "▍", "▌", "▋", "▊", "█"]
-    perc = 100 * float(step) / float(total_steps)
-    max_ticks = bar_width * 8
-    num_ticks = int(round(perc / 100 * max_ticks))
-    full_ticks = num_ticks / 8  # Number of full blocks
-    part_ticks = num_ticks % 8  # Size of partial block (array index)
-
-    disp = bar = ""  # Blank out variables
-    bar += utf_8s[0] * int(full_ticks)  # Add full blocks into Progress Bar
-
-    # If part_ticks is zero, then no partial block, else append part char
-    if part_ticks > 0:
-        bar += utf_8s[part_ticks]
-
-    # Pad Progress Bar with fill character
-    bar += "▒" * int((max_ticks / 8 - float(num_ticks) / 8.0))
-
-    if len(title) > 0:
-        disp = title + ": "  # Optional title to progress display
-
-    # Print progress bar in green: https://stackoverflow.com/a/21786287/6929343
-    disp += "\x1b[0;32m"  # Color Green
-    disp += bar  # Progress bar to progress display
-    disp += "\x1b[0m"  # Color Reset
-    if print_perc:
-        # If requested, append percentage complete to progress display
-        if perc > 100.0:
-            perc = 100.0  # Fix "100.04 %" rounding error
-        disp += " {:6.2f}".format(perc) + " %"
-    disp += f"   {step}/{total_steps} {label} {suffix}"
-
-    # Output to terminal repetitively over the same line using '\r'.
-    sys.stdout.write("\r" + disp)
-    sys.stdout.flush()
-
-    # print newline when finished
-    if step >= total_steps:
-        print()
