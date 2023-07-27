@@ -1,6 +1,6 @@
 import numpy as np
-from pytorch_classification.utils import Bar, AverageMeter
 import time
+from utils import status_bar
 
 
 class Arena:
@@ -97,9 +97,8 @@ class Arena:
             twoWon: games won by player2
             draws:  games won by nobody
         """
-        eps_time = AverageMeter()
-        bar = Bar('Arena.playGames', max=num)
-        end = time.time()
+        total_time = 0
+
         eps = 0
         maxeps = int(num)
         originalNum = num
@@ -112,6 +111,8 @@ class Arena:
         outcomes = []
 
         for _ in range(num):
+            start_time = time.time()
+
             gameResult, action_history = self.playGame(verbose=verbose)
             outcomes.append(action_history)
             if gameResult == 1:
@@ -120,16 +121,15 @@ class Arena:
                 twoWon += 1
             else:
                 draws += 1
-            # bookkeeping + plot progress
+
             eps += 1
-            eps_time.update(time.time() - end)
-            end = time.time()
-            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps,
-                                                                                                         maxeps=maxeps,
-                                                                                                         et=eps_time.avg,
-                                                                                                         total=bar.elapsed_td,
-                                                                                                         eta=bar.eta_td)
-            bar.next()
+
+            end_time = time.time()
+            total_time += round(end_time - start_time, 2)
+            status_bar(eps, maxeps,
+                       title="Arena", label="Games",
+                       suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / eps} | Total: {round(total_time, 2)}")
+
 
         self.player1, self.player2 = self.player2, self.player1
 
@@ -137,6 +137,8 @@ class Arena:
             num += 1
 
         for _ in range(num):
+            start_time = time.time()
+
             gameResult, action_history = self.playGame(verbose=verbose)
             outcomes.append(action_history)
             if gameResult == -1:
@@ -145,17 +147,13 @@ class Arena:
                 twoWon += 1
             else:
                 draws += 1
-            # bookkeeping + plot progress
-            eps += 1
-            eps_time.update(time.time() - end)
-            end = time.time()
-            bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}\n'.format(eps=eps,
-                                                                                                         maxeps=maxeps,
-                                                                                                         et=eps_time.avg,
-                                                                                                         total=bar.elapsed_td,
-                                                                                                         eta=bar.eta_td)
-            bar.next()
 
-        bar.finish()
+            eps += 1
+
+            end_time = time.time()
+            total_time += round(end_time - start_time, 2)
+            status_bar(eps, maxeps,
+                       title="Arena", label="Games",
+                       suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / eps} | Total: {round(total_time, 2)}")
 
         return oneWon, twoWon, draws, outcomes

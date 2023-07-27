@@ -15,3 +15,5 @@ sbatch_script.sh
 sbatch.sh
 slur*
 /.pydevproject
+logs
+.idea

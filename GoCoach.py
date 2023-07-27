@@ -1,19 +1,21 @@
+import glob
+import os
+import sys
+import time
 from collections import deque
+from pickle import Pickler, Unpickler
+from random import shuffle
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import paramiko
+import psutil
+from scp import SCPClient
+
 from Arena import Arena
 from GoMCTS import MCTS
 from go.GoGame import display
-import numpy as np
-from pytorch_classification.utils import Bar, AverageMeter
-import time, os, sys
-from pickle import Pickler, Unpickler
-from random import shuffle
-import pandas as pd
-import matplotlib.pyplot as plt
-import psutil
-import os
-import paramiko
-from scp import SCPClient
-import glob
 from utils import status_bar
 
 
@@ -137,16 +139,16 @@ class Coach:
 
                     total_time = 0
                     for eps in range(first_iteration_num_games):
-                        start = time.time()
+                        start_time = time.time()
                         self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
                         self.iterationTrainExamples += self.executeEpisode()
 
                         # update bar print out
-                        end = time.time()
-                        total_time += round(end - start, 2)
+                        end_time = time.time()
+                        total_time += round(end_time - start_time, 2)
                         status_bar(self.currentEpisode, first_iteration_num_games,
                                    title="Polling Games", label="Games",
-                                   suffix=f"| Eps Time: {round(end - start, 2)} | Total Time: {round(total_time, 2)}")
+                                   suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / self.currentEpisode} | Total: {round(total_time, 2)}")
 
                     games_played_during_iteration = first_iteration_num_games
 
@@ -172,16 +174,16 @@ class Coach:
                         print(f"Starting polling session #{polling_tracker}.")
                         total_time = 0
                         for eps in range(self.args.polling_games):
-                            start = time.time()
+                            start_time = time.time()
                             self.mcts = MCTS(self.game, self.nnet, self.args)
                             self.iterationTrainExamples += self.executeEpisode()
                             games_played_during_iteration += 1
 
-                            end = time.time()
-                            total_time += round(end - start, 2)
+                            end_time = time.time()
+                            total_time += round(end_time - start_time, 2)
                             status_bar(eps + 1, self.args.polling_games,
                                              title="Polling Games", label="Games",
-                                             suffix=f"| Eps Time: {round(end - start, 2)} | Total Time: {round(total_time, 2)}")
+                                             suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / (eps + 1)} | Total: {round(total_time, 2)}")
 
                         # after polling games are played, check drive and download as many "new" files as possible
                         num_downloads = self.scan_examples_folder_and_load(game_limit=self.args.numEps - games_played_during_iteration)
@@ -208,26 +210,21 @@ class Coach:
                 # examples of the iteration
                 if not self.skipFirstSelfPlay or i > self.args.start_iter:
                     self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
-                    eps_time = AverageMeter()
-                    bar = Bar('Self Play', max=self.args.numEps)
-                    end = time.time()
 
+                    total_time = 0
                     for eps in range(self.args.numEps):
-                        # print("{}th Episode:".format(eps+1))
+                        start_time = time.time()
+
                         self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
-                        currentEpisode = eps + 1
+                        self.currentEpisode = eps + 1
                         self.iterationTrainExamples += self.executeEpisode()
 
-                        # bookkeeping + plot progress
-                        eps_time.update(time.time() - end)
-                        end = time.time()
+                        end_time = time.time()
+                        total_time += round(end_time - start_time, 2)
+                        status_bar(self.currentEpisode, self.args.numEps,
+                                   title="Self Play", label="Games",
+                                   suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / self.currentEpisode} | Total: {round(total_time, 2)}")
 
-                        bar.suffix = '({eps}/{maxeps}) Eps Time: {et:.3f}s | Total: {total:} | ETA: {eta:}'.format(
-                            eps=eps + 1, maxeps=self.args.numEps, et=eps_time.avg,
-                            total=bar.elapsed_td, eta=bar.eta_td)
-                        bar.next()
-
-                    bar.finish()
                     games_played_during_iteration = self.args.numEps
 
             # Log how many games were added during each iteration
