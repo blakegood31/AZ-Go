@@ -126,7 +126,7 @@ class Coach:
             iterHistory['ITER'].append(i)
             games_played_during_iteration = 0
 
-            if self.args.distributed_training and not self.args.load_model:
+            if self.args.distributed_training:
                 print(f"##### Iteration {i} Distributed Training #####")
 
                 if i == 1 and not self.args.load_model:
@@ -153,6 +153,8 @@ class Coach:
                     games_played_during_iteration = first_iteration_num_games
 
                 else:
+                    self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+
                     if not new_model_accepted_in_previous_iteration:
                         # download most recent training examples from the drive (until numEps is hit or files run out)
                         # previous examples are still valid training data
@@ -204,11 +206,10 @@ class Coach:
                         print()
 
             else:
-                # normal (non-distributed) training loop
-                print(f"######## Iteration {i} Episode Play ########")
-                # bookkeeping
-                # examples of the iteration
                 if not self.skipFirstSelfPlay or i > self.args.start_iter:
+                    # normal (non-distributed) training loop
+                    print(f"######## Iteration {i} Episode Play ########")
+
                     self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
 
                     total_time = 0
@@ -237,26 +238,30 @@ class Coach:
                 f"\n Number of games added to train examples during iteration #{i}: {games_played_during_iteration} games\n")
             counts_file.close()
 
-            # read trainExamples from local disk and use them for NN training
-            if i != 1 or self.args.load_model:
-                new_train_examples = self.iterationTrainExamples
+            # # read trainExamples from local disk and use them for NN training
+            # if i != 1 or self.args.load_model:
+            #     new_train_examples = self.iterationTrainExamples
+            #
+            #     # update pathing
+            #     checkpoint_dir = f'logs/go/{self.NetType}_MCTS_SimModified_checkpoint/{self.game.getBoardSize()[0]}/'
+            #     checkpoint_files = [file for file in os.listdir(checkpoint_dir) if
+            #                         file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
+            #     latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
+            #     self.args.load_folder_file = [
+            #         f'logs/go/{self.NetType}_MCTS_SimModified_checkpoint/{self.game.getBoardSize()[0]}/',
+            #         latest_checkpoint]
+            #
+            #     self.loadTrainExamples()
+            #
+            #     self.trainExamplesHistory.append(new_train_examples)
+            # else:
+            #     # save the iteration examples to the history
+            #     if not self.skipFirstSelfPlay:
+            #         self.trainExamplesHistory.append(self.iterationTrainExamples)
 
-                # update pathing
-                checkpoint_dir = f'logs/go/{self.NetType}_MCTS_SimModified_checkpoint/{self.game.getBoardSize()[0]}/'
-                checkpoint_files = [file for file in os.listdir(checkpoint_dir) if
-                                    file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
-                latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
-                self.args.load_folder_file = [
-                    f'logs/go/{self.NetType}_MCTS_SimModified_checkpoint/{self.game.getBoardSize()[0]}/',
-                    latest_checkpoint]
-
-                self.loadTrainExamples()
-
-                self.trainExamplesHistory.append(new_train_examples)
-            else:
-                # save the iteration examples to the history
-                if not self.skipFirstSelfPlay:
-                    self.trainExamplesHistory.append(self.iterationTrainExamples)
+            # save the iteration examples to the history
+            if not self.skipFirstSelfPlay:
+                self.trainExamplesHistory.append(self.iterationTrainExamples)
 
             # prune trainExamples to meet args recommendation
             while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
@@ -287,9 +292,9 @@ class Coach:
             trainLog = self.nnet.train(trainExamples)
 
             # clear trainExamples after they are used
-            self.trainExamplesHistory = []
-            self.iterationTrainExamples.clear()
-            trainExamples.clear()
+            # self.trainExamplesHistory = []
+            # self.iterationTrainExamples.clear()
+            # trainExamples.clear()
 
             self.p_loss_per_iteration.append(np.average(trainLog['P_LOSS'].to_numpy()))
             self.v_loss_per_iteration.append(np.average(trainLog['V_LOSS'].to_numpy()))

@@ -27,9 +27,10 @@ except:
     from ...NeuralNet import NeuralNet
 
 args = dotdict({
-    'lr': 0.001,
+    'lr': 0.0001,
     'dropout': 0.0,
     'epochs': 10,
+    'batch_size': 2048,
     'cuda': torch.cuda.is_available(),
     'num_channels': 128,
 })
@@ -62,18 +63,15 @@ class NNetWrapper(NeuralNet):
         """
         examples: list of examples, each example is of form (board, pi, v)
         """
-        optimizer = optim.Adam(self.nnet.parameters())
+        optimizer = optim.Adam(self.nnet.parameters(), lr=args.lr, weight_decay=5e-4)
+        # or
+        # optimizer = optim.SGD(self.nnet.parameters(), lr=args.lr, momentum=0.9)
 
         trainLog = {
             'EPOCH': [],
             'P_LOSS': [],
             'V_LOSS': []
         }
-
-        # dynamically change the batch size as the number of training examples increases
-        batch_size = 64 * round((len(examples) / 100) / 64)
-        if batch_size < 64:
-            batch_size = 64
 
         for epoch in range(args.epochs):
             # print('EPOCH ::: ' + str(epoch + 1))
@@ -85,11 +83,11 @@ class NNetWrapper(NeuralNet):
             v_losses = AverageMeter()
             end = time.time()
 
-            bar = Bar('Training Network', max=int(len(examples) / batch_size))
+            bar = Bar('Training Network', max=int(len(examples) / args.batch_size))
             batch_idx = 0
 
-            while batch_idx < int(len(examples) / batch_size):
-                sample_ids = np.random.randint(len(examples), size=batch_size)
+            while batch_idx < int(len(examples) / args.batch_size):
+                sample_ids = np.random.randint(len(examples), size=args.batch_size)
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
                 #Convert board histories to stacks as defined in paper
                 temp_boards = list(boards)
@@ -134,23 +132,23 @@ class NNetWrapper(NeuralNet):
                 bar.suffix = '({batch}/{size}) Epoch: {epoch:} | Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f} | Batch_size: {batch_size:}'.format(
                     epoch=epoch + 1,
                     batch=batch_idx,
-                    size=int(len(examples) / batch_size),
+                    size=int(len(examples) / args.batch_size),
                     data=data_time.avg,
                     bt=batch_time.avg,
                     total=bar.elapsed_td,
                     eta=bar.eta_td,
                     lpi=pi_losses.avg,
                     lv=v_losses.avg,
-                    batch_size=batch_size
+                    batch_size=args.batch_size
                 )
 
                 bar.next()
 
+            # plot avg pi loss and v loss for all epochs in iteration
             trainLog['P_LOSS'].append(pi_losses.avg)
             trainLog['V_LOSS'].append(v_losses.avg)
             bar.finish()
 
-        #### plot avg pi loss and v loss for all epochs in iteration
 
         return pd.DataFrame(data=trainLog)
 
