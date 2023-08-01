@@ -94,11 +94,10 @@ class AlphaBlock(nn.Module):
 
 
 class AlphaNet(ResNet):
-    def __init__(self, game, args, layers):
+    def __init__(self, game, layers):
         block = AlphaBlock
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
-        self.args = args
         outputShift = 1 if self.board_x in [6, 7, 11] else 4
         self.inplanes = 128  # changed from 64
 
@@ -178,37 +177,36 @@ class AlphaNet(ResNet):
 
 
 class AlphaNetMaker:
-    def __init__(self, game, args):
+    def __init__(self, game):
         self.n, self.n = game.getBoardSize()
         self.game = game
-        self.args = args
 
     def makeNet(self):
         if self.n <= 11:
             print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 18))
-            return self.resnet18(self.game, self.args)
+            return self.resnet18(self.game)
         else:
             print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 34))
-            return self.resnet34(self.game, self.args)
+            return self.resnet34(self.game)
 
-    def resnet18(self, game, args, pretrained=False):
+    def resnet18(self, game, pretrained=False):
         """Constructs a ResNet-18 model.
 
         Args:
             pretrained (bool): If True, returns a model pre-trained on ImageNet
         """
-        model = AlphaNet(game, args, [2, 2, 2, 2])
+        model = AlphaNet(game, [2, 2, 2, 2])
         if pretrained:
             model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
         return model
 
-    def resnet34(self, game, args, pretrained=False, **kwargs):
+    def resnet34(self, game, pretrained=False, **kwargs):
         """Constructs a ResNet-34 model.
 
         Args:
             pretrained (bool): If True, returns a model pre-trained on ImageNet
         """
-        model = AlphaNet(game, args, [3, 4, 6, 3])
+        model = AlphaNet(game, [3, 4, 6, 3])
         if pretrained:
             model.load_state_dict(model_zoo.load_url(model_urls['resnet34']))
         return model

@@ -41,11 +41,3 @@ def status_bar(step, total_steps, bar_width=45, title="", label="", suffix="", p
     # print newline when finished
     if step >= total_steps:
         print()
-
-
-class dotdict(dict):
-    def __getattr__(self, name):
-        if name == '__getstate__':
-            return super().__getattr__(name)  # Call the superclass method
-        else:
-            return self[name]

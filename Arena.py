@@ -1,6 +1,7 @@
 import numpy as np
 import time
 from utils import status_bar
+from go.GoGame import display
 
 
 class Arena:
@@ -8,7 +9,7 @@ class Arena:
     An Arena class where any 2 agents can be pit against each other.
     """
 
-    def __init__(self, player1, player2, game, datetime, args, display=None, displayValue=0):
+    def __init__(self, player1, player2, game, config):
         """
         Input:
             player 1,2: two functions that takes board as input, return action
@@ -23,10 +24,7 @@ class Arena:
         self.player1 = player1
         self.player2 = player2
         self.game = game
-        self.display = display
-        self.displayValue = displayValue
-        self.datetime = datetime
-        self.args = args
+        self.config = config
 
     def playGame(self, verbose=True):
         """
@@ -45,20 +43,18 @@ class Arena:
         action_history = []
         x_boards = []
         y_boards = []
-        c_boards = []
-        c_boards.append(np.ones((7, 7)))
-        c_boards.append(np.zeros((7, 7)))
+        c_boards = [np.ones((7, 7)), np.zeros((7, 7))]
         for i in range(4):
-            x_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
-            y_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
+            x_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
+            y_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
         while self.game.getGameEnded(board, curPlayer) == 0:
             it += 1
             if verbose:
                 score = self.game.getScore(board)
 
-                if self.displayValue == 1:
+                if self.config["display"] == 1:
                     print("\nTurn ", str(it), "Player ", str(curPlayer))
-                    print(self.display(board))
+                    print(display(board))
                     print(f"Current score: b {score[0]}, W {score[1]}")
             canonicalBoard = self.game.getCanonicalForm(board, curPlayer)
             player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
@@ -81,7 +77,7 @@ class Arena:
             # assert(self.display)
             r, score = self.game.getGameEnded(board, 1, returnScore=True)
 
-            if self.displayValue == 1:
+            if self.config["display"] == 1:
                 print("\nGame over: Turn ", str(it), "Result ", str(r))
                 print(self.display(board))
                 print(f"Final score: b {score[0]}, W {score[1]}\n")

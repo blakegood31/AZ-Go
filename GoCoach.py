@@ -11,37 +11,49 @@ import numpy as np
 import pandas as pd
 import paramiko
 import psutil
+import yaml
 from scp import SCPClient
 
 from Arena import Arena
 from GoMCTS import MCTS
 from go.GoGame import display
 from utils import status_bar
+from datetime import datetime
 
 
 class Coach:
     """
     This class executes the self-play + learning. It uses the functions defined
-    in Game and NeuralNet. args are specified in main.py.
+    in Game and NeuralNet. config is specified in config.yaml.
     """
 
-    def __init__(self, game, nnet, args, log=False, logPath='', NetType='RES'):
+    def __init__(self, game, nnet, config):
         self.game = game
         self.nnet = nnet
-        self.pnet = self.nnet.__class__(self.game, t=self.nnet.netType)  # the competitor network
-        self.args = args
-        self.mcts = MCTS(self.game, self.nnet, self.args)
-        self.trainExamplesHistory = []  # history of examples from args.numItersForTrainExamplesHistory latest iterations
+        self.pnet = self.nnet.__class__(self.game, config)  # the competitor network
+        self.config = config
+        self.mcts = MCTS(self.game, self.nnet, self.config)
+        self.trainExamplesHistory = []  # history of examples from config["max_num_iterations_in_train_example_history"] latest iterations
         self.skipFirstSelfPlay = False  # can be overriden in loadTrainExamples()
-        self.display = args['display']
-        self.keepLog = log
-        self.logPath = logPath
+
         self.p_loss_per_iteration = []
         self.v_loss_per_iteration = []
         self.winRate = []
         self.currentEpisode = 0
-        self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
-        self.NetType = NetType
+        self.iterationTrainExamples = deque([], maxlen=self.config["max_length_of_queue"])
+
+        self.date_time = datetime.now().strftime("%d-%m-%Y %H")
+        self.latest_checkpoint = 0
+
+        # if needed, import sensitive_config
+        if config["enable_distributed_training"]:
+            with open("sensitive.yaml", "r") as stream:
+                try:
+                    self.sensitive_config = yaml.safe_load(stream)
+                    print(self.sensitive_config)
+
+                except yaml.YAMLError as exc:
+                    raise ValueError(exc)
 
     def executeEpisode(self):
         """
@@ -67,19 +79,20 @@ class Coach:
         y_boards = []
         c_boards = [np.ones((7, 7)), np.zeros((7, 7))]
         for i in range(4):
-            x_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
-            y_boards.append(np.zeros((self.args.boardsize, self.args.boardsize)))
+            x_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
+            y_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
         while True:
             episodeStep += 1
-            if self.display == 1:
+            if self.config["display"] == 1:
                 print("================Episode {} Step:{}=====CURPLAYER:{}==========".format(self.currentEpisode,
                                                                                              episodeStep,
                                                                                              "White" if self.curPlayer == -1 else "Black"))
             canonicalBoard = self.game.getCanonicalForm(board, self.curPlayer)
             player_board = c_boards[0] if self.curPlayer == 1 else c_boards[1]
-            canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces, player_board)
+            canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards,
+                                                                                 canonicalBoard.pieces, player_board)
 
-            temp = int(episodeStep < self.args.tempThreshold)
+            temp = int(episodeStep < self.config["temperature_threshold"])
             pi = self.mcts.getActionProb(canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, temp=temp)
             # get different symmetries/rotations of the board
             sym = self.game.getSymmetries(canonicalHistory, pi)
@@ -88,18 +101,18 @@ class Coach:
             action = np.random.choice(len(pi), p=pi)
 
             board, self.curPlayer = self.game.getNextState(board, self.curPlayer, action)
-            if self.display == 1:
+            if self.config["display"] == 1:
                 print("BOARD updated:")
                 # display(board)
                 print(display(board))
             r, score = self.game.getGameEnded(board.copy(), self.curPlayer, returnScore=True)
             if r != 0:
-                if self.display == 1:
+                if self.config["display"] == 1:
                     print("Current episode ends, {} wins with score b {}, W {}.".format('Black' if r == -1 else 'White',
                                                                                         score[0], score[1]))
 
                 return [(x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer))) for x in trainExamples]
-            elif r == 0 and self.display == 1:
+            elif r == 0 and self.config["display"] == 1:
                 print(f"Current score: b {score[0]}, W {score[1]}")
             x_boards, y_boards = y_boards, x_boards
 
@@ -111,36 +124,44 @@ class Coach:
         It then pits the new neural network against the old one and accepts it
         only if it wins >= updateThreshold fraction of games.
         """
-        # print('RAM Used start of learn (GB):', psutil.virtual_memory()[3] / 1000000000)
         iterHistory = {'ITER': [], 'ITER_DETAIL': [], 'PITT_RESULT': []}
+
+        if self.config["load_model"]:
+            checkpoint_files = [file for file in os.listdir(self.config["checkpoint_directory"]) if
+                                file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
+            self.latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
+            start_iter = int(self.latest_checkpoint.split('_')[1].split('.')[0]) + 1
+        else:
+            start_iter = 1
 
         # helper distributed variables
         upload_number = 1
         new_model_accepted_in_previous_iteration = False
 
-        if self.args.load_model:
+        if self.config["load_model"]:
             self.loadLosses()
 
         # training loop
-        for i in range(self.args.start_iter, self.args.numIters + 1):
+        for i in range(start_iter, self.config["num_iterations"] + 1):
             iterHistory['ITER'].append(i)
             games_played_during_iteration = 0
 
-            if self.args.distributed_training:
+            if self.config["enable_distributed_training"]:
                 print(f"##### Iteration {i} Distributed Training #####")
 
-                if i == 1 and not self.args.load_model:
-                    first_iteration_num_games = int(self.args.numEps / 20)
+                if i == 1 and not self.config["load_model"]:
+                    first_iteration_num_games = int(self.config["num_self_play_episodes"] / 20)
 
                     # on first iteration, play X games, so a model can be updated to lambda
-                    print(f"First iteration. Play {first_iteration_num_games} self play games, so there is a model to upload to lambda.")
+                    print(
+                        f"First iteration. Play {first_iteration_num_games} self play games, so there is a model to upload to lambda.")
 
-                    self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                    self.iterationTrainExamples = deque([], maxlen=self.config["max_length_of_queue"])
 
                     total_time = 0
                     for eps in range(first_iteration_num_games):
                         start_time = time.time()
-                        self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
+                        self.mcts = MCTS(self.game, self.nnet, self.config)  # reset search tree
                         self.iterationTrainExamples += self.executeEpisode()
 
                         # update bar print out
@@ -153,51 +174,54 @@ class Coach:
                     games_played_during_iteration = first_iteration_num_games
 
                 else:
-                    self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                    self.iterationTrainExamples = deque([], maxlen=self.config["max_length_of_queue"])
 
                     if not new_model_accepted_in_previous_iteration:
                         # download most recent training examples from the drive (until numEps is hit or files run out)
                         # previous examples are still valid training data
                         print("New model not accepted in previous iteration. Downloading from lambda.")
-                        games_played_during_iteration += self.scan_examples_folder_and_load(game_limit=self.args.numEps)
-                        status_bar(games_played_during_iteration, self.args.numEps,
-                                     title="Lambda Downloaded Games", label="Games")
+                        games_played_during_iteration += self.scan_examples_folder_and_load(
+                            game_limit=self.config["num_self_play_episodes"])
+                        status_bar(games_played_during_iteration, self.config["num_self_play_episodes"],
+                                   title="Lambda Downloaded Games", label="Games")
 
                     else:
                         print("New model accepted in previous iteration. Start polling games.")
 
-                    if games_played_during_iteration >= self.args.numEps:
-                        status_bar(games_played_during_iteration, self.args.numEps,
-                                         title="Self Play + Distributed Training", label="Games")
+                    if games_played_during_iteration >= self.config["num_self_play_episodes"]:
+                        status_bar(games_played_during_iteration, self.config["num_self_play_episodes"],
+                                   title="Self Play + Distributed Training", label="Games")
 
                     polling_tracker = 1
-                    while games_played_during_iteration < self.args.numEps:
+                    while games_played_during_iteration < self.config["num_self_play_episodes"]:
                         # play games and download from drive until limit is reached
                         print(f"Starting polling session #{polling_tracker}.")
                         total_time = 0
-                        for eps in range(self.args.polling_games):
+                        for eps in range(self.config["polling_games"]):
                             start_time = time.time()
-                            self.mcts = MCTS(self.game, self.nnet, self.args)
+                            self.mcts = MCTS(self.game, self.nnet, self.config)
                             self.iterationTrainExamples += self.executeEpisode()
                             games_played_during_iteration += 1
 
                             end_time = time.time()
                             total_time += round(end_time - start_time, 2)
-                            status_bar(eps + 1, self.args.polling_games,
-                                             title="Polling Games", label="Games",
-                                             suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / (eps + 1)} | Total: {round(total_time, 2)}")
+                            status_bar(eps + 1, self.config["polling_games"],
+                                       title="Polling Games", label="Games",
+                                       suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / (eps + 1)} | Total: {round(total_time, 2)}")
 
                         # after polling games are played, check drive and download as many "new" files as possible
-                        num_downloads = self.scan_examples_folder_and_load(game_limit=self.args.numEps - games_played_during_iteration)
-                        status_bar(num_downloads, self.args.numEps - games_played_during_iteration,
-                                         title="Lambda Downloaded Games", label="Games")
+                        num_downloads = self.scan_examples_folder_and_load(
+                            game_limit=self.config["num_self_play_episodes"] - games_played_during_iteration)
+                        if self.config["num_self_play_episodes"] - games_played_during_iteration != 0:
+                            status_bar(num_downloads, self.config["num_self_play_episodes"] - games_played_during_iteration,
+                                             title="Lambda Downloaded Games", label="Games")
 
                         print()
 
                         games_played_during_iteration += num_downloads
 
-                        status_bar(games_played_during_iteration, self.args.numEps,
-                                         title="Self Play + Distributed Training", label="Games")
+                        status_bar(games_played_during_iteration, self.config["num_self_play_episodes"],
+                                   title="Self Play + Distributed Training", label="Games")
 
                         polling_tracker += 1
 
@@ -206,30 +230,30 @@ class Coach:
                         print()
 
             else:
-                if not self.skipFirstSelfPlay or i > self.args.start_iter:
+                if not self.skipFirstSelfPlay or i > start_iter:
                     # normal (non-distributed) training loop
                     print(f"######## Iteration {i} Episode Play ########")
 
-                    self.iterationTrainExamples = deque([], maxlen=self.args.maxlenOfQueue)
+                    self.iterationTrainExamples = deque([], maxlen=self.config["max_length_of_queue"])
 
                     total_time = 0
-                    for eps in range(self.args.numEps):
+                    for eps in range(self.config["num_self_play_episodes"]):
                         start_time = time.time()
 
-                        self.mcts = MCTS(self.game, self.nnet, self.args)  # reset search tree
+                        self.mcts = MCTS(self.game, self.nnet, self.config)  # reset search tree
                         self.currentEpisode = eps + 1
                         self.iterationTrainExamples += self.executeEpisode()
 
                         end_time = time.time()
                         total_time += round(end_time - start_time, 2)
-                        status_bar(self.currentEpisode, self.args.numEps,
+                        status_bar(self.currentEpisode, self.config["num_self_play_episodes"],
                                    title="Self Play", label="Games",
                                    suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / self.currentEpisode} | Total: {round(total_time, 2)}")
 
-                    games_played_during_iteration = self.args.numEps
+                    games_played_during_iteration = self.config["num_self_play_episodes"]
 
             # Log how many games were added during each iteration
-            file_name = f'logs/go/{self.args.nettype}_MCTS_SimModified_checkpoint/{self.args.boardsize}/Game_Counts.txt'
+            file_name = self.config["train_logs_directory"] + "/Game_Counts.txt"
             if not os.path.isfile(file_name):
                 counts_file = open(file_name, 'w')
                 counts_file.close()
@@ -239,7 +263,7 @@ class Coach:
             counts_file.close()
 
             # # read trainExamples from local disk and use them for NN training
-            # if i != 1 or self.args.load_model:
+            # if i != 1 or self.config["load_model"]:
             #     new_train_examples = self.iterationTrainExamples
             #
             #     # update pathing
@@ -263,13 +287,14 @@ class Coach:
             if not self.skipFirstSelfPlay:
                 self.trainExamplesHistory.append(self.iterationTrainExamples)
 
-            # prune trainExamples to meet args recommendation
-            while len(self.trainExamplesHistory) > self.args.numItersForTrainExamplesHistory:
-                print(f"Truncated trainExamplesHistory to {len(self.trainExamplesHistory)}. Length exceeded args limit.")
+            # prune trainExamples to meet config recommendation
+            while len(self.trainExamplesHistory) > self.config["max_num_iterations_in_train_example_history"]:
+                print(
+                    f"Truncated trainExamplesHistory to {len(self.trainExamplesHistory)}. Length exceeded config limit.")
                 self.trainExamplesHistory.pop(0)
 
             # prune trainExamples to meet ram requirement
-            ramCap = self.args.ram_cap
+            ramCap = self.config["ram_cap"]
             while int(psutil.virtual_memory()[3] / 1000000000) > ramCap and len(self.trainExamplesHistory) > 13:
                 print(f"Truncated trainExamplesHistory to {len(self.trainExamplesHistory)}. Length exceeded ram limit.")
                 self.trainExamplesHistory.pop(0)
@@ -285,9 +310,9 @@ class Coach:
             shuffle(trainExamples)
 
             # training new network, keeping a copy of the old one
-            self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            self.pnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-            pmcts = MCTS(self.game, self.pnet, self.args)
+            self.nnet.save_checkpoint(folder=self.config["checkpoint_directory"], filename='temp.pth.tar')
+            self.pnet.load_checkpoint(folder=self.config["checkpoint_directory"], filename='temp.pth.tar')
+            pmcts = MCTS(self.game, self.pnet, self.config)
 
             trainLog = self.nnet.train(trainExamples)
 
@@ -298,56 +323,55 @@ class Coach:
 
             self.p_loss_per_iteration.append(np.average(trainLog['P_LOSS'].to_numpy()))
             self.v_loss_per_iteration.append(np.average(trainLog['V_LOSS'].to_numpy()))
-            if self.keepLog:
-                trainLog.to_csv(self.logPath + 'ITER_{}_TRAIN_LOG.csv'.format(i))
+            trainLog.to_csv(self.config["train_logs_directory"] + '/ITER_{}_TRAIN_LOG.csv'.format(i))
 
-            iterHistory['ITER_DETAIL'].append(self.logPath + 'ITER_{}_TRAIN_LOG.csv'.format(i))
+            iterHistory['ITER_DETAIL'].append(self.config["train_logs_directory"] + '/ITER_{}_TRAIN_LOG.csv'.format(i))
 
-            nmcts = MCTS(self.game, self.nnet, self.args)
+            nmcts = MCTS(self.game, self.nnet, self.config)
 
             print('\nPITTING AGAINST PREVIOUS VERSION')
             arena = Arena(lambda x, y, z, a, b: np.argmax(pmcts.getActionProb(x, y, z, a, b, temp=0)),
-                          lambda x, y, z, a, b: np.argmax(nmcts.getActionProb(x, y, z, a, b, temp=0)), self.game, self.args.datetime, self.args,
-                          display=display,
-                          displayValue=self.display.value)
-            pwins, nwins, draws, outcomes = arena.playGames(self.args.arenaCompare)
-            self.winRate.append(nwins / self.args.arenaCompare)
+                          lambda x, y, z, a, b: np.argmax(nmcts.getActionProb(x, y, z, a, b, temp=0)), self.game,
+                          self.config)
+            pwins, nwins, draws, outcomes = arena.playGames(self.config["num_arena_episodes"])
+            self.winRate.append(nwins / self.config["num_arena_episodes"])
             self.saveLosses()
             print('NEW/PREV WINS : %d / %d ; DRAWS : %d' % (nwins, pwins, draws))
-            if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.args.updateThreshold:
+            if pwins + nwins > 0 and float(nwins) / (pwins + nwins) < self.config["acceptance_threshold"]:
                 print('REJECTING NEW MODEL')
                 new_model_accepted_in_previous_iteration = False
                 iterHistory['PITT_RESULT'].append('R')
-                self.nnet.load_checkpoint(folder=self.args.checkpoint, filename='temp.pth.tar')
-                if i == 1 and self.args.distributed_training and not self.args.load_model:
+                self.nnet.load_checkpoint(folder=self.config["checkpoint_directory"], filename='temp.pth.tar')
+                if i == 1 and self.config["enable_distributed_training"] and not self.config["load_model"]:
                     new_model_accepted_in_previous_iteration = True
-                    self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
-                    self.send_model_to_server(username="username", server_address="server_address", remote_path="path")
+                    self.nnet.save_checkpoint(folder=self.config["checkpoint_directory"], filename='best.pth.tar')
+                    self.send_model_to_server()
 
             else:
                 print('ACCEPTING NEW MODEL')
                 new_model_accepted_in_previous_iteration = True
                 iterHistory['PITT_RESULT'].append('A')
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename=self.getCheckpointFile(i))
-                self.nnet.save_checkpoint(folder=self.args.checkpoint, filename='best.pth.tar')
-                if self.args.distributed_training:
-                    self.send_model_to_server(username="username", server_address="server_address", remote_path="path")
+                self.nnet.save_checkpoint(folder=self.config["checkpoint_directory"],
+                                          filename=self.getCheckpointFile(i))
+                self.nnet.save_checkpoint(folder=self.config["checkpoint_directory"], filename='best.pth.tar')
+                if self.config["enable_distributed_training"]:
+                    self.send_model_to_server()
                     upload_number += 1
                     self.wipe_examples_folder()
 
-            pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
+            pd.DataFrame(data=iterHistory).to_csv(self.config["train_logs_directory"] + '/ITER_LOG.csv')
 
             self.create_sgf_files_for_games(games=outcomes, iteration=i)
             self.saveTrainingPlots()
             self.skipFirstSelfPlay = False
 
-        pd.DataFrame(data=iterHistory).to_csv(self.logPath + 'ITER_LOG.csv')
+        pd.DataFrame(data=iterHistory).to_csv(self.config["train_logs_directory"] + '/ITER_LOG.csv')
 
     def getCheckpointFile(self, iteration):
         return 'checkpoint_' + str(iteration) + '.pth.tar'
 
     def saveTrainExamples(self, iteration):
-        folder = self.args.checkpoint
+        folder = self.config["checkpoint_directory"]
         if not os.path.exists(folder):
             os.makedirs(folder)
         filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
@@ -357,7 +381,7 @@ class Coach:
         f.closed
 
     def loadTrainExamples(self):
-        modelFile = os.path.join(self.args.load_folder_file[0], self.args.load_folder_file[1])
+        modelFile = os.path.join(self.config["checkpoint_directory"], self.latest_checkpoint)
         examplesFile = modelFile  # + ".examples"
         if not os.path.isfile(examplesFile):
             print(examplesFile)
@@ -380,14 +404,15 @@ class Coach:
                 for i in range(len(examples)):
                     self.iterationTrainExamples += examples[i]
             except:
-                print(f"Error loading file: {file_path}\nFile not found on local device. Maybe there was an issue downloading it?")
+                print(
+                    f"Error loading file: {file_path}\nFile not found on local device. Maybe there was an issue downloading it?")
                 pass
         self.skipFirstSelfPlay = False
         f.closed
 
     def saveLosses(self):
         # Save ploss, vloss, and winRate so graphs are consistent across training sessions
-        folder = self.args.checkpoint
+        folder = self.config["graph_directory"]
         if not os.path.exists(folder):
             os.makedirs(folder)
         vloss_filename = os.path.join(folder, "vlosses")
@@ -405,9 +430,9 @@ class Coach:
 
     def loadLosses(self):
         # Load in ploss, vloss, and winRates from previous iterations so graphs are consistent
-        vlossFile = os.path.join(self.args.checkpoint, "vlosses")
-        plossFile = os.path.join(self.args.checkpoint, "plosses")
-        winrateFile = os.path.join(self.args.checkpoint, "winrates")
+        vlossFile = os.path.join(self.config["graph_directory"], "vlosses")
+        plossFile = os.path.join(self.config["graph_directory"], "plosses")
+        winrateFile = os.path.join(self.config["graph_directory"], "winrates")
         if not os.path.isfile(vlossFile) or not os.path.isfile(plossFile):
             r = input("File with vloss or ploss not found. Continue? [y|n]")
             if r != "y":
@@ -451,21 +476,23 @@ class Coach:
         plt.xlabel('Iteration')
         plt.ylabel('Win Rate (%)')
         plt.locator_params(axis='x', integer=True, tight=True)
-        plt.axhline(y=self.args.updateThreshold, color='b', linestyle='-')
+        plt.axhline(y=self.config["acceptance_threshold"], color='b', linestyle='-')
         plt.plot(self.winRate, 'r', label='Win Rate')
 
-        plt.savefig(f"logs/go/Training_Results/Training_Result_{self.args.datetime}.png")
+        plt.savefig(self.config["graph_directory"] + f"/Training_Result{self.date_time}.png")
 
     def create_sgf_files_for_games(self, games, iteration):
 
         for game_idx in range(len(games)):
-            file_name = f'logs/go/Game_History/Iteration {iteration}, Game {game_idx + 1} {self.args.sgf_datetime}.sgf'
+            # file_name = f'logs/go/Game_History/Iteration {iteration}, Game {game_idx + 1} {self.date_time}.sgf'
+            file_name = self.config["game_history_directory"] + f"/Iteration {iteration}, Game {game_idx + 1} {self.date_time}.sgf"
+
             sgf_file = open(file_name, 'w')
             sgf_file.close()
 
             sgf_file = open(file_name, 'a')
             sgf_file.write(
-                f"(;\nEV[AlphaGo Self-Play]\nGN[Iteration {iteration}]\nDT[{self.args.datetime}]\nPB[TCU_AlphaGo]\nPW[TCU_AlphaGo]"
+                f"(;\nEV[AlphaGo Self-Play]\nGN[Iteration {iteration}]\nDT[{self.date_time}]\nPB[TCU_AlphaGo]\nPW[TCU_AlphaGo]"
                 f"\nSZ[{self.game.getBoardSize()[0]}]\nRU["
                 f"Chinese]\n\n")
 
@@ -475,7 +502,7 @@ class Coach:
             sgf_file.write("\n)")
             sgf_file.close()
 
-    ##### local distributed training helper functions ######
+    # local distributed training helper functions
     def createSSHClient(self, server, port, user, password):
         client = paramiko.SSHClient()
         client.load_system_host_keys()
@@ -484,15 +511,15 @@ class Coach:
         return client
 
     # doesn't currently rename the file... which I think is fine
-    def send_model_to_server(self, username, server_address, remote_path):
-        local_path = os.path.join(self.args.checkpoint, 'best.pth.tar')
-        ssh = self.createSSHClient(server_address, 22, username, "password")
+    def send_model_to_server(self):
+        local_path = os.path.join(self.config["checkpoint_directory"], 'best.pth.tar')
+        ssh = self.createSSHClient(self.sensitive_config["remote_server_address"], 22, self.sensitive_config["remote_username"], self.sensitive_config["remote_password"])
         scp = SCPClient(ssh.get_transport())
-        scp.put(local_path, remote_path)
+        scp.put(local_path, self.config["remote_directory"])
         print("New model uploaded.")
 
     def scan_examples_folder_and_load(self, game_limit):
-        files = glob.glob("/")
+        files = glob.glob(self.sensitive_config["local_examples_directory"])
 
         game_count = 0
 
@@ -514,7 +541,7 @@ class Coach:
         return game_count
 
     def wipe_examples_folder(self):
-        files = glob.glob("/")
+        files = glob.glob(self.sensitive_config["local_examples_directory"])
 
         for f in files:
             os.remove(f)
