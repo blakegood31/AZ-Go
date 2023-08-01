@@ -1,0 +1,42 @@
+# configuration file for the program
+
+# Go Game configuration
+board_size: 7                 # N x N board for Go Game
+
+# time parameters
+num_iterations: 50            # number of total iterations (Episodes + NN Training + Arena) to play
+num_self_play_episodes: 2   # number of data-generating games to play before training the neural network
+num_arena_episodes: 1        # number of evaluation games to determine which model to keep (new or old)
+num_polling_games: 5          # number of games to play locally while waiting for distributed games (requires enable_distributed_training -> true)
+
+# training type parameters
+load_model: true
+enable_distributed_training: false
+
+# console parameters
+display: 0                    # 0 -> display bar | 1 -> display board
+
+# MCTS parameters
+num_MCTS_simulations: 150     # number of moves for MCTS to simulate
+temperature_threshold: 15     # number of moves before MCTS picks moves based only on max visit counts (temp = 1 until threshold, then temp = 0)
+acceptance_threshold: 0.54    # percentage of Arena games a new model must win to be accepted
+c_puct: 1.0                   # hyperparameter to control the degree of exploration in MCTS
+
+# Neural network parameters
+network_type: RES             # "RES" -> Use resnet | "CNN" -> use convolutional neural network
+max_length_of_queue: 200000   # max number of moves to train neural network with
+max_num_iterations_in_train_example_history: 5  # max number of iterations to train the neural network with
+learning_rate: 0.0001
+batch_size: 32
+dropout: 0.0
+epochs: 10
+num_channels: 128
+
+# logging parameters
+checkpoint_directory: logs/checkpoints  # directory where models will be loaded and saved
+game_history_directory: logs/arena_game_history   # directory where arena SGF files will be saved
+graph_directory: logs/graphs  # directory where loss and win rate graphs will be saved
+train_logs_directory: logs/train_logs # directory where detailed loss data (CSV) will be saved
+
+# misc parameters
+ram_cap: 120                  # max amount of RAM for program to use in GB before truncating train_example_history

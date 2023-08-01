@@ -5,8 +5,6 @@ from collections import OrderedDict
 import numpy as np
 import sys
 
-from torch import nn
-
 sys.path.append('../../')
 
 import pandas as pd
@@ -26,43 +24,37 @@ except:
     from ...pytorch_classification.utils import Bar, AverageMeter
     from ...NeuralNet import NeuralNet
 
-args = dotdict({
-    'lr': 0.001,
-    'dropout': 0.0,
-    'epochs': 10,
-    'cuda': torch.cuda.is_available(),
-    'num_channels': 512,
-})
-
-print(args)
-
 
 class NNetWrapper(NeuralNet):
-    def __init__(self, game, t='RES'):
-        self.netType = t
-        if t == 'RES':
-            netMkr = NetMaker(game, args)
+    def __init__(self, game, config):
+        self.config = config
+
+        self.netType = self.config["network_type"]
+        if self.netType == 'RES':
+            netMkr = NetMaker(game)
             self.nnet = netMkr.makeNet()
-            self.nnet = nn.DataParallel(self.nnet)
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.nnet.to(device)
+            # self.nnet = nn.DataParallel(self.nnet)
+            # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            # self.nnet.to(device)
         else:
-            self.nnet = GoNNet(game, args)
-            self.nnet = nn.DataParallel(self.nnet)
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            self.nnet.to(device)
+            self.nnet = GoNNet(game, self.config)
+            # self.nnet = nn.DataParallel(self.nnet)
+            # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            # self.nnet.to(device)
 
         self.board_x, self.board_y = game.getBoardSize()
         self.action_size = game.getActionSize()
 
-        if args.cuda:
+        if torch.cuda.is_available():
             self.nnet.cuda()
 
     def train(self, examples):
         """
         examples: list of examples, each example is of form (board, pi, v)
         """
-        optimizer = optim.Adam(self.nnet.parameters())
+        # optimizer = optim.Adam(self.nnet.parameters(), lr=self.config["learning_rate"], weight_decay=5e-4)
+        # or
+        optimizer = optim.SGD(self.nnet.parameters(), lr=self.config["learning_rate"], momentum=0.9)
 
         trainLog = {
             'EPOCH': [],
@@ -70,12 +62,7 @@ class NNetWrapper(NeuralNet):
             'V_LOSS': []
         }
 
-        # dynamically change the batch size as the number of training examples increases
-        batch_size = 64 * round((len(examples) / 100) / 64)
-        if batch_size < 64:
-            batch_size = 64
-
-        for epoch in range(args.epochs):
+        for epoch in range(self.config["epochs"]):
             # print('EPOCH ::: ' + str(epoch + 1))
             trainLog['EPOCH'].append(epoch)
             self.nnet.train()
@@ -85,24 +72,24 @@ class NNetWrapper(NeuralNet):
             v_losses = AverageMeter()
             end = time.time()
 
-            bar = Bar('Training Network', max=int(len(examples) / batch_size))
+            bar = Bar('Training Network', max=int(len(examples) / self.config["batch_size"]))
             batch_idx = 0
 
-            while batch_idx < int(len(examples) / batch_size):
-                sample_ids = np.random.randint(len(examples), size=batch_size)
+            while batch_idx < int(len(examples) / self.config["batch_size"]):
+                sample_ids = np.random.randint(len(examples), size=self.config["batch_size"])
                 boards, pis, vs = list(zip(*[examples[i] for i in sample_ids]))
-                #Convert board histories to stacks as defined in paper
+                # Convert board histories to stacks as defined in paper
                 temp_boards = list(boards)
                 for i in range(len(temp_boards)):
                     temp_boards[i] = np.stack(temp_boards[i])
                 boards = tuple(temp_boards)
-                
+
                 boards = torch.FloatTensor(np.array(boards).astype(np.float64))
                 target_pis = torch.FloatTensor(np.array(pis))
                 target_vs = torch.FloatTensor(np.array(vs).astype(np.float64))
 
                 # predict
-                if args.cuda:
+                if torch.cuda.is_available():
                     boards, target_pis, target_vs = boards.contiguous().cuda(), target_pis.contiguous().cuda(), target_vs.contiguous().cuda()
                 boards, target_pis, target_vs = Variable(boards), Variable(target_pis), Variable(target_vs)
 
@@ -134,23 +121,22 @@ class NNetWrapper(NeuralNet):
                 bar.suffix = '({batch}/{size}) Epoch: {epoch:} | Data: {data:.3f}s | Batch: {bt:.3f}s | Total: {total:} | ETA: {eta:} | Loss_pi: {lpi:.4f} | Loss_v: {lv:.3f} | Batch_size: {batch_size:}'.format(
                     epoch=epoch + 1,
                     batch=batch_idx,
-                    size=int(len(examples) / batch_size),
+                    size=int(len(examples) / self.config["batch_size"]),
                     data=data_time.avg,
                     bt=batch_time.avg,
                     total=bar.elapsed_td,
                     eta=bar.eta_td,
                     lpi=pi_losses.avg,
                     lv=v_losses.avg,
-                    batch_size=batch_size
+                    batch_size=self.config["batch_size"]
                 )
 
                 bar.next()
 
+            # plot avg pi loss and v loss for all epochs in iteration
             trainLog['P_LOSS'].append(pi_losses.avg)
             trainLog['V_LOSS'].append(v_losses.avg)
             bar.finish()
-
-        #### plot avg pi loss and v loss for all epochs in iteration
 
         return pd.DataFrame(data=trainLog)
 
@@ -160,14 +146,14 @@ class NNetWrapper(NeuralNet):
         """
         # preparing input
         board = np.stack(board_list)
-        #print("stack length: ", len(board))
+        # print("stack length: ", len(board))
         board = torch.FloatTensor(board.astype(np.float64))
-        #print("stack length2: ", len(board))
-        if args.cuda: board = board.contiguous().cuda()
+        # print("stack length2: ", len(board))
+        if torch.cuda.is_available(): board = board.contiguous().cuda()
         board = Variable(board, requires_grad=False)
-        #print("stack length3: ", len(board))
+        # print("stack length3: ", len(board))
         board = board.view(9, self.board_x, self.board_y)
-        #print("stack length4: ", len(board))
+        # print("stack length4: ", len(board))
 
         self.nnet.eval()
 

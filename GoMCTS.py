@@ -2,7 +2,6 @@ import math
 import sys
 
 import numpy as np
-import time
 import copy
 try:
     from .go.GoGame import display
@@ -13,7 +12,7 @@ except:
         from go.GoGame import display
 
 
-class MCTS():
+class MCTS:
     """
     This class handles the MCTS tree.
     """
@@ -27,10 +26,10 @@ class MCTS():
             except ValueError:
                 return size - 1  # subtract current frame
 
-    def __init__(self, game, nnet, args):
+    def __init__(self, game, nnet, config):
         self.game = game
         self.nnet = nnet
-        self.args = args
+        self.config = config
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
         self.Nsa = {}  # stores #times edge s,a was visited
         self.Ns = {}  # stores #times board s was visited
@@ -49,7 +48,7 @@ class MCTS():
                    proportional to Nsa[(s,a)]**(1./temp)
         """
 
-        for i in range(min(self.args.numMCTSSims, self.smartSimNum)):
+        for i in range(min(int(self.config["num_MCTS_simulations"]), self.smartSimNum)):
             self.search(canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, 1)
 
         s = self.game.stringRepresentation(canonicalBoard)
@@ -58,10 +57,19 @@ class MCTS():
         valids = self.game.getValidMoves(canonicalBoard, player=1)
         self.smartSimNum = 10 * (np.count_nonzero(valids))
 
+        # if np.sum(counts) == 0:
+        #     counts = valids
+        # else:
+        #     counts *= valids
+
         if np.sum(counts) == 0:
             counts = valids
         else:
             counts *= valids
+            # temporary fix
+            if np.sum(counts) == 0:
+                counts = valids
+                print("MCTS counts & valids error occurred.")
 
         if temp == 0:
             bestA = np.argmax(counts)
@@ -184,10 +192,10 @@ class MCTS():
         for a in range(self.game.getActionSize()):
             if valids[a] != 0:
                 if (s, a) in self.Qsa and self.Qsa[(s, a)] != None:
-                    u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
+                    u = self.Qsa[(s, a)] + self.config["c_puct"] * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                                 1 + self.Nsa[(s, a)])
                 else:
-                    u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s])  # Q = 0 ?
+                    u = self.config["c_puct"] * self.Ps[s][a] * math.sqrt(self.Ns[s])  # Q = 0 ?
 
                 if u > cur_best:
                     cur_best = u
@@ -214,10 +222,10 @@ class MCTS():
             for a in range(self.game.getActionSize()):
                 if valids[a] != 0:
                     if (s, a) in self.Qsa and self.Qsa[(s, a)] != None:
-                        u = self.Qsa[(s, a)] + self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
+                        u = self.Qsa[(s, a)] + self.config["c_puct"] * self.Ps[s][a] * math.sqrt(self.Ns[s]) / (
                                     1 + self.Nsa[(s, a)])
                     else:
-                        u = self.args.cpuct * self.Ps[s][a] * math.sqrt(self.Ns[s])  # Q = 0 ?
+                        u = self.config["c_puct"] * self.Ps[s][a] * math.sqrt(self.Ns[s])  # Q = 0 ?
 
                     if u > cur_best:
                         cur_best = u
