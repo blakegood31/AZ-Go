@@ -183,7 +183,7 @@ class AlphaNetMaker:
 
     def makeNet(self):
         if self.n <= 11:
-            print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 18))
+            # print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 18))
             return self.resnet18(self.game)
         else:
             print("[LOG]:Input board size is {}x{}, using ResNet-{}.".format(self.n, self.n, 34))

@@ -12,6 +12,7 @@ num_polling_games: 5          # number of games to play locally while waiting fo
 # training type parameters
 load_model: true
 enable_distributed_training: false
+num_games_per_distributed_batch: 1  # number of games to play before uploading training examples to main server
 
 # console parameters
 display: 0                    # 0 -> display bar | 1 -> display board
