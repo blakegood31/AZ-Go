@@ -5,14 +5,15 @@ board_size: 7                 # N x N board for Go Game
 
 # time parameters
 num_iterations: 50            # number of total iterations (Episodes + NN Training + Arena) to play
-num_self_play_episodes: 2   # number of data-generating games to play before training the neural network
+num_self_play_episodes: 1   # number of data-generating games to play before training the neural network
 num_arena_episodes: 1        # number of evaluation games to determine which model to keep (new or old)
 num_polling_games: 5          # number of games to play locally while waiting for distributed games (requires enable_distributed_training -> true)
 
 # training type parameters
-load_model: true
+load_model: false
 enable_distributed_training: false
 num_games_per_distributed_batch: 1  # number of games to play before uploading training examples to main server
+num_parallel_games: 10              # number of games for worker server to play in parallel during distributed training
 
 # console parameters
 display: 0                    # 0 -> display bar | 1 -> display board

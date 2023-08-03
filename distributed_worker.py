@@ -2,6 +2,7 @@ import os
 from collections import deque
 from datetime import datetime
 from pickle import Pickler
+from multiprocessing import Pool
 
 import paramiko
 import yaml
@@ -12,7 +13,7 @@ from go.pytorch.NNet import NNetWrapper as nn
 from GoCoach import Coach
 
 
-def learn(game, nnet, config):
+def learn(game, nnet, config, identifier):
     """
     Performs numIters iterations with numEps episodes of self-play in each
     iteration. After every iteration, it retrains neural network with
@@ -34,7 +35,7 @@ def learn(game, nnet, config):
     folder = config["checkpoint_directory"]
     if not os.path.exists(folder):
         os.makedirs(folder)
-    filename = os.path.join(folder, 'checkpoint_' + str(timestamp) + '.pth.tar')
+    filename = os.path.join(folder, 'checkpoint_' + str(timestamp) + "_proc_" + str(identifier) + '.pth.tar')
     with open(filename, "wb+") as f:
         Pickler(f).dump(trainExamplesHistory)
     f.closed
@@ -71,21 +72,21 @@ with open("sensitive.yaml", "r") as stream:
     except yaml.YAMLError as exc:
         raise ValueError(exc)
 
-iter_num = 1
-while True:
+
+def worker_loop(identifier):
     game = Game(config["board_size"])
     neural_network = nn(game, config)
 
     # Load recent model into nnet
     neural_network.load_checkpoint(sensitive_config["distributed_models_directory"], 'best.pth.tar')
-    print("Done loading model")
+    # print("Done loading model")
 
-    print(f"Starting game {iter_num}...")
+    # print(f"Starting game {iter_num}...")
+    print(f"Starting game on process: {identifier}")
     # Generate training examples
-    new_train_examples = learn(game=game, nnet=neural_network, config=config)
-    iter_num += 1
+    new_train_examples = learn(game=game, nnet=neural_network, config=config, identifier=identifier)
 
-    print(f"Game complete. Sending examples to {sensitive_config['main_server_address']}")
+    print(f"Game complete on process {identifier}. Sending examples to {sensitive_config['main_server_address']}")
     # where is the file located on local machine
     local_path = new_train_examples
     send_examples_to_server(sensitive_config=sensitive_config, local_path=local_path)
@@ -94,4 +95,22 @@ while True:
     # delete it from the local machine
     os.remove(local_path)
     # print("Deleted example from local machine")
+    # print()
+
+    return "DONE"
+
+
+pool_num = 1
+while True:
+
+    print(f"Pool {pool_num} Started")
+    # create and configure the process pool
+    with Pool(config["num_parallel_games"]) as pool:
+        # execute tasks in order
+        for result in pool.map(worker_loop, range(config["num_parallel_games"])):
+            print(f'Got result: {result}', flush=True)
+    # process pool is closed automatically
+    print(f"Pool {pool_num} Finished")
     print()
+
+    pool_num += 1
