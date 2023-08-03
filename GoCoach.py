@@ -377,7 +377,13 @@ class Coach:
         filename = os.path.join(folder, self.getCheckpointFile(iteration) + ".examples")
         with open(filename, "wb+") as f:
             # print('RAM Used before dump (GB):', psutil.virtual_memory()[3] / 1000000000)
-            Pickler(f).dump(self.trainExamplesHistory)
+            is_error = True
+            while is_error:
+                try:
+                    Pickler(f).dump(self.trainExamplesHistory)
+                    is_error = False
+                except:
+                    is_error = True
         f.closed
 
     def loadTrainExamples(self):
@@ -389,9 +395,15 @@ class Coach:
             if r != "y":
                 sys.exit()
         else:
-            print("File with trainExamples found. Read it.")
+            print(f"File with trainExamples found. Read it: {examplesFile}")
             with open(examplesFile, "rb") as f:
-                self.trainExamplesHistory = Unpickler(f).load()
+                is_error = True
+                while is_error:
+                    try:
+                        self.trainExamplesHistory = Unpickler(f).load()
+                        is_error = False
+                    except:
+                        is_error = True
             f.closed
             # examples based on the model were already collected (loaded)
             self.skipFirstSelfPlay = True
@@ -419,13 +431,31 @@ class Coach:
         ploss_filename = os.path.join(folder, "plosses")
         winRate_filename = os.path.join(folder, "winrates")
         with open(vloss_filename, "wb+") as f:
-            Pickler(f).dump(self.v_loss_per_iteration)
+            is_error = True
+            while is_error:
+                try:
+                    Pickler(f).dump(self.v_loss_per_iteration)
+                    is_error = False
+                except:
+                    is_error = True
         f.closed
         with open(ploss_filename, "wb+") as f:
-            Pickler(f).dump(self.p_loss_per_iteration)
+            is_error = True
+            while is_error:
+                try:
+                    Pickler(f).dump(self.p_loss_per_iteration)
+                    is_error = False
+                except:
+                    is_error = True
         f.closed
         with open(winRate_filename, "wb+") as f:
-            Pickler(f).dump(self.winRate)
+            is_error = True
+            while is_error:
+                try:
+                    Pickler(f).dump(self.winRate)
+                    is_error = False
+                except:
+                    is_error = True
         f.closed
 
     def loadLosses(self):
@@ -440,13 +470,31 @@ class Coach:
         else:
             print("File with graph information found. Read it.")
             with open(vlossFile, "rb") as f:
-                self.v_loss_per_iteration = Unpickler(f).load()
+                is_error = True
+                while is_error:
+                    try:
+                        self.v_loss_per_iteration = Unpickler(f).load()
+                        is_error = False
+                    except:
+                        is_error = True
             f.closed
             with open(plossFile, "rb") as f:
-                self.p_loss_per_iteration = Unpickler(f).load()
+                is_error = True
+                while is_error:
+                    try:
+                        self.p_loss_per_iteration = Unpickler(f).load()
+                        is_error = False
+                    except:
+                        is_error = True
             f.closed
             with open(winrateFile, "rb") as f:
-                self.winRate = Unpickler(f).load()
+                is_error = True
+                while is_error:
+                    try:
+                        self.winRate = Unpickler(f).load()
+                        is_error = False
+                    except:
+                        is_error = True
             f.closed
 
     # plot/save v/p loss after training
