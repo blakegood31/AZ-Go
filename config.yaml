@@ -13,7 +13,7 @@ num_polling_games: 5          # number of games to play locally while waiting fo
 load_model: false
 enable_distributed_training: false
 num_games_per_distributed_batch: 1  # number of games to play before uploading training examples to main server
-num_parallel_games: 10              # number of games for worker server to play in parallel during distributed training
+num_parallel_games: 16              # number of games for worker server to play in parallel during distributed training
 
 # console parameters
 display: 0                    # 0 -> display bar | 1 -> display board

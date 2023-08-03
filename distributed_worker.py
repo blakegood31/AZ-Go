@@ -2,7 +2,7 @@ import os
 from collections import deque
 from datetime import datetime
 from pickle import Pickler
-from multiprocessing import Pool
+import multiprocessing as mp
 
 import paramiko
 import yaml
@@ -61,14 +61,14 @@ def send_examples_to_server(sensitive_config, local_path):
 with open("config.yaml", "r") as stream:
     try:
         config = yaml.safe_load(stream)
-        print(config)
+        # print(config)
     except yaml.YAMLError as exc:
         raise ValueError(exc)
 
 with open("sensitive.yaml", "r") as stream:
     try:
         sensitive_config = yaml.safe_load(stream)
-        print(sensitive_config)
+        # print(sensitive_config)
     except yaml.YAMLError as exc:
         raise ValueError(exc)
 
@@ -97,20 +97,26 @@ def worker_loop(identifier):
     # print("Deleted example from local machine")
     # print()
 
-    return "DONE"
 
+if __name__ == "__main__":
+    mp.set_start_method('spawn')
 
-pool_num = 1
-while True:
+    pool_num = 1
+    while True:
+        mp.cpu_count()
 
-    print(f"Pool {pool_num} Started")
-    # create and configure the process pool
-    with Pool(config["num_parallel_games"]) as pool:
-        # execute tasks in order
-        for result in pool.map(worker_loop, range(config["num_parallel_games"])):
-            print(f'Got result: {result}', flush=True)
-    # process pool is closed automatically
-    print(f"Pool {pool_num} Finished")
-    print()
+        print(f"Pool {pool_num} Started")
 
-    pool_num += 1
+        # create and configure the process pool
+        with mp.Pool(config["num_parallel_games"]) as pool:
+            for i in range(config["num_parallel_games"]):
+                pool.apply_async(worker_loop, args=(i,))
+
+            pool.close()
+            pool.join()
+
+        # process pool is closed automatically
+        print(f"Pool {pool_num} Finished")
+        print()
+
+        pool_num += 1
