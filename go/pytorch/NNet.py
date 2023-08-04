@@ -152,7 +152,7 @@ class NNetWrapper(NeuralNet):
         if torch.cuda.is_available(): board = board.contiguous().cuda()
         board = Variable(board, requires_grad=False)
         # print("stack length3: ", len(board))
-        board = board.view(9, self.board_x, self.board_y)
+        board = board.view(17, self.board_x, self.board_y)
         # print("stack length4: ", len(board))
 
         self.nnet.eval()

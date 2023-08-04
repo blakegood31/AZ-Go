@@ -103,7 +103,7 @@ class AlphaNet(ResNet):
 
         super(ResNet, self).__init__()
 
-        self.conv1 = nn.Conv2d(9, 128, kernel_size=5, stride=1, padding=2,
+        self.conv1 = nn.Conv2d(17, 128, kernel_size=5, stride=1, padding=2,
                                bias=False)
         self.bn1 = nn.BatchNorm2d(128)
         self.relu = nn.ReLU(inplace=True)
@@ -145,7 +145,7 @@ class AlphaNet(ResNet):
 
     def forward(self, x):
         # print("forward")
-        x = x.view(-1, 9, self.board_x, self.board_y)
+        x = x.view(-1, 17, self.board_x, self.board_y)
         # print("Before conv1:", x.size())
         x = self.conv1(x)
         # print("After conv1:", x.size())
