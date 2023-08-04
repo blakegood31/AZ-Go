@@ -78,7 +78,7 @@ class Coach:
         x_boards = []
         y_boards = []
         c_boards = [np.ones((7, 7)), np.zeros((7, 7))]
-        for i in range(4):
+        for i in range(8):
             x_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
             y_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
         while True:
@@ -91,7 +91,7 @@ class Coach:
             player_board = c_boards[0] if self.curPlayer == 1 else c_boards[1]
             canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards,
                                                                                  canonicalBoard.pieces, player_board)
-
+            print("Can His: ", canonicalHistory)
             temp = int(episodeStep < self.config["temperature_threshold"])
             pi = self.mcts.getActionProb(canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, temp=temp)
             # get different symmetries/rotations of the board

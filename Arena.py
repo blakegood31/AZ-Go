@@ -44,7 +44,7 @@ class Arena:
         x_boards = []
         y_boards = []
         c_boards = [np.ones((7, 7)), np.zeros((7, 7))]
-        for i in range(4):
+        for i in range(8):
             x_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
             y_boards.append(np.zeros((self.config["board_size"], self.config["board_size"])))
         while self.game.getGameEnded(board, curPlayer) == 0:
@@ -79,7 +79,7 @@ class Arena:
 
             if self.config["display"] == 1:
                 print("\nGame over: Turn ", str(it), "Result ", str(r))
-                print(self.display(board))
+                print(display(board))
                 print(f"Final score: b {score[0]}, W {score[1]}\n")
         return self.game.getGameEnded(board, 1), action_history
 
