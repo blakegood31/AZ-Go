@@ -52,9 +52,15 @@ class NNetWrapper(NeuralNet):
         """
         examples: list of examples, each example is of form (board, pi, v)
         """
-        # optimizer = optim.Adam(self.nnet.parameters(), lr=self.config["learning_rate"], weight_decay=5e-4)
-        # or
-        optimizer = optim.SGD(self.nnet.parameters(), lr=self.config["learning_rate"], momentum=0.9)
+
+        if self.config["optimizer_type"] == "Adam":
+            print("Adam used.")
+            optimizer = optim.Adam(self.nnet.parameters(), lr=self.config["learning_rate"], weight_decay=5e-4)
+        elif self.config["optimizer_type"] == "SGD":
+            print("SGD used.")
+            optimizer = optim.SGD(self.nnet.parameters(), lr=self.config["learning_rate"], momentum=0.9)
+        else:
+            raise KeyError(f"Optimizer type '{self.config['optimizer_type']}' is not supported. Please check config.yaml for supported optimizer types.")
 
         trainLog = {
             'EPOCH': [],

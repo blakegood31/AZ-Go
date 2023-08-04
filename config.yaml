@@ -26,6 +26,7 @@ c_puct: 1.0                   # hyperparameter to control the degree of explorat
 
 # Neural network parameters
 network_type: RES             # "RES" -> Use resnet | "CNN" -> use convolutional neural network
+optimizer_type: SGD           # "SGD" -> w/ momentum of 0.9 | "Adam" -> w/ weight decay of 5e-4
 max_length_of_queue: 200000   # max number of moves to train neural network with
 max_num_iterations_in_train_example_history: 5  # max number of iterations to train the neural network with
 learning_rate: 0.0001
