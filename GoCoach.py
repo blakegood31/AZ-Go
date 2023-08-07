@@ -166,9 +166,9 @@ class Coach:
                         # update bar print out
                         end_time = time.time()
                         total_time += round(end_time - start_time, 2)
-                        status_bar(self.currentEpisode, first_iteration_num_games,
+                        status_bar(eps + 1, first_iteration_num_games,
                                    title="Polling Games", label="Games",
-                                   suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / self.currentEpisode} | Total: {round(total_time, 2)}")
+                                   suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / eps + 1} | Total: {round(total_time, 2)}")
 
                     games_played_during_iteration = first_iteration_num_games
 
@@ -196,7 +196,7 @@ class Coach:
                         # play games and download from drive until limit is reached
                         print(f"Starting polling session #{polling_tracker}.")
                         total_time = 0
-                        for eps in range(self.config["num_polling_gamesc"]):
+                        for eps in range(self.config["num_polling_games"]):
                             start_time = time.time()
                             self.mcts = MCTS(self.game, self.nnet, self.config)
                             self.iterationTrainExamples += self.executeEpisode()
@@ -566,7 +566,7 @@ class Coach:
         print("New model uploaded.")
 
     def scan_examples_folder_and_load(self, game_limit):
-        files = glob.glob(self.sensitive_config["distributed_examples_directory"])
+        files = glob.glob(self.sensitive_config["distributed_examples_directory"] + "*")
 
         game_count = 0
 
@@ -588,7 +588,7 @@ class Coach:
         return game_count
 
     def wipe_examples_folder(self):
-        files = glob.glob(self.sensitive_config["distributed_examples_directory"])
+        files = glob.glob(self.sensitive_config["distributed_examples_directory"] + "*")
 
         for f in files:
             os.remove(f)
