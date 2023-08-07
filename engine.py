@@ -38,8 +38,7 @@ curPlayer = 1
 x_boards = []
 y_boards = []
 c_boards = [np.ones((7, 7)), np.zeros((7, 7))]
-# TODO: Change this to 8
-for i in range(4):
+for i in range(8):
     x_boards.append(np.zeros((config["board_size"], config["board_size"])))
     y_boards.append(np.zeros((config["board_size"], config["board_size"])))
 canonicalBoard = game.getCanonicalForm(board, curPlayer)
