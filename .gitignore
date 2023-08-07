@@ -18,3 +18,7 @@ slur*
 logs
 .idea
 sensitive.yaml
+engine.spec
+model.tar
+build
+dist

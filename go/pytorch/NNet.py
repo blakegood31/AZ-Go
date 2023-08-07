@@ -183,22 +183,35 @@ class NNetWrapper(NeuralNet):
             'state_dict': self.nnet.state_dict(),
         }, filepath)
 
-    def load_checkpoint(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):
+    # use cpu_only for maximum compatibility with slowest performance
+    def load_checkpoint(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar', cpu_only=False):
         # https://github.com/pytorch/examples/blob/master/imagenet/main.py#L98
         filepath = os.path.join(folder, filename)
         if not os.path.exists(filepath):
             raise BaseException("No model in path {}".format(filepath))
-        checkpoint = torch.load(filepath)
+
+        if cpu_only:
+            checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(filepath)
+
         self.nnet.load_state_dict(checkpoint['state_dict'])
 
-    def load_checkpoint_from_plain_to_parallel(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar'):
+    # use cpu_only for maximum compatibility with slowest performance
+    def load_checkpoint_from_plain_to_parallel(self, folder='R_checkpoint', filename='R_checkpoint.pth.tar', cpu_only=False):
         filepath = os.path.join(folder, filename)
-        checkpoint = torch.load(filepath)
+        if not os.path.exists(filepath):
+            raise BaseException("No model in path {}".format(filepath))
+
+        if cpu_only:
+            checkpoint = torch.load(filepath, map_location=torch.device('cpu'))
+        else:
+            checkpoint = torch.load(filepath)
+
         state_dict = checkpoint['state_dict']
 
         new_state_dict = OrderedDict()
         for k, v in state_dict.items():
             name = "module." + k  # add 'module.' of dataparallel, so it works with examples from plain model
             new_state_dict[name] = v
-
         self.nnet.load_state_dict(new_state_dict)
