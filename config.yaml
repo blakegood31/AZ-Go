@@ -10,7 +10,7 @@ num_arena_episodes: 50        # number of evaluation games to determine which mo
 num_polling_games: 5          # number of games to play locally while waiting for distributed games (requires enable_distributed_training -> true)
 
 # training type parameters
-load_model: true
+load_model: false
 enable_distributed_training: true
 num_games_per_distributed_batch: 1  # number of games to play before uploading training examples to main server
 num_parallel_games: 15              # number of games for worker server to play in parallel during distributed training
@@ -19,7 +19,7 @@ num_parallel_games: 15              # number of games for worker server to play 
 display: 0                    # 0 -> display bar | 1 -> display board
 
 # MCTS parameters
-num_MCTS_simulations: 150     # number of moves for MCTS to simulate
+num_MCTS_simulations: 200     # number of moves for MCTS to simulate
 temperature_threshold: 15     # number of moves before MCTS picks moves based only on max visit counts (temp = 1 until threshold, then temp = 0)
 acceptance_threshold: 0.54    # percentage of Arena games a new model must win to be accepted
 c_puct: 1.0                   # hyperparameter to control the degree of exploration in MCTS

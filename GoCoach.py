@@ -166,9 +166,15 @@ class Coach:
                         # update bar print out
                         end_time = time.time()
                         total_time += round(end_time - start_time, 2)
-                        status_bar(eps + 1, first_iteration_num_games,
-                                   title="Polling Games", label="Games",
+                        if eps == 0:
+                            status_bar(eps + 1, first_iteration_num_games,
+                                   title="1st Iter Games", label="Games",
+                                   suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2)} | Total: {round(total_time, 2)}")
+                        else:
+                            status_bar(eps + 1, first_iteration_num_games,
+                                   title="1st Iter Games", label="Games",
                                    suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / eps + 1} | Total: {round(total_time, 2)}")
+
 
                     games_played_during_iteration = first_iteration_num_games
 
