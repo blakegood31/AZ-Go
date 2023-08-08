@@ -57,7 +57,7 @@ class Arena:
                     print(display(board))
                     print(f"Current score: b {score[0]}, W {score[1]}")
             canonicalBoard = self.game.getCanonicalForm(board, curPlayer)
-            player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
+            player_board = (c_boards[0], c_boards[1]) if curPlayer == 1 else (c_boards[1], c_boards[0])
             canonicalHistory, x_boards, y_boards = self.game.getCanonicalHistory(x_boards, y_boards,
                                                                                  canonicalBoard.pieces, player_board)
             # print("History used to make move: ", canonicalHistory)
