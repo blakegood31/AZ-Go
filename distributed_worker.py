@@ -1,7 +1,8 @@
 import os
 from collections import deque
 from datetime import datetime
-from pickle import Pickler
+import dill 
+from dill import Pickler
 import multiprocessing as mp
 
 import paramiko
@@ -21,6 +22,9 @@ def learn(game, nnet, config, identifier):
     It then pits the new neural network against the old one and accepts it
     only if it wins >= updateThreshold fraction of games.
     """
+    dill.settings['recurse'] = True
+    Pickler.settings['recurse'] = True
+
     trainExamplesHistory = []
     iterationTrainExamples = deque([], maxlen=config["max_length_of_queue"])
 
