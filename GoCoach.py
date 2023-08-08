@@ -3,7 +3,8 @@ import os
 import sys
 import time
 from collections import deque
-from pickle import Pickler, Unpickler
+import dill 
+from dill import Pickler, Unpickler
 from random import shuffle
 
 import matplotlib.pyplot as plt
@@ -44,6 +45,11 @@ class Coach:
 
         self.date_time = datetime.now().strftime("%d-%m-%Y %H")
         self.latest_checkpoint = 0
+
+        #Set recurse to true in order to fix segmentation fault error
+        dill.settings['recurse'] = True
+        Pickler.settings['recurse'] = True
+        Unpickler.settings['recurse'] = True
 
         # if needed, import sensitive_config
         if config["enable_distributed_training"]:
