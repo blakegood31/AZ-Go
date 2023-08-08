@@ -137,6 +137,7 @@ class Coach:
                                 file.startswith('checkpoint_') and file.endswith('.pth.tar.examples')]
             self.latest_checkpoint = max(checkpoint_files, key=lambda x: int(x.split('_')[1].split('.')[0]))
             start_iter = int(self.latest_checkpoint.split('_')[1].split('.')[0]) + 1
+            self.loadTrainExamples()
         else:
             start_iter = 1
 
@@ -314,7 +315,6 @@ class Coach:
             # backup history to a file
             # NB! the examples were collected using the model from the previous iteration, so (i-1)
             self.saveTrainExamples(i - 1)
-
             # shuffle examples before training
             trainExamples = []
             for e in self.trainExamplesHistory:
