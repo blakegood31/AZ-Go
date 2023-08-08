@@ -173,7 +173,7 @@ class MCTS:
             self.Ns[s] = 0
 
             #Return game result if leaf node is terminal state 
-            if 1 in player_board:
+            if 1 in player_board[0]:
                 perspective = 1
             else:
                 perspective = -1
@@ -240,10 +240,10 @@ class MCTS:
 
         next_s = self.game.getCanonicalForm(next_s, next_player)
 
-        if 1 in player_board:
-            player_board = np.zeros((7,7))
+        if 1 in player_board[0]:
+            player_board = (np.zeros((7,7)), np.ones((7,7)))
         else:
-            player_board = np.ones((7,7))
+            player_board = (np.ones((7,7)), np.zeros((7,7)))
 
         calls += 1
         x_boards, y_boards = y_boards, x_boards

@@ -199,7 +199,8 @@ class GoGame(Game):
             history.append(x_boards[i])
             history.append(y_boards[i])
 
-        history.append(player_board)
+        history.append(player_board[0])
+        history.append(player_board[1])
         return history, x_boards, y_boards
 
 
