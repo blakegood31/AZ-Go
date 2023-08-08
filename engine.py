@@ -10,7 +10,17 @@ from go.pytorch.NNet import NNetWrapper as nn
 from GoCoach import Coach
 from GoMCTS import MCTS
 
-with open(os.path.join(os.path.dirname(sys.argv[0]), 'config.yaml'), "r") as stream:
+
+def resource_path(relative_path):
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
+
+
+with open(resource_path("config.yaml"), "r") as stream:
     try:
         config = yaml.safe_load(stream)
         # print(config)
@@ -22,7 +32,7 @@ VERSION = '1.0'
 game = Game(config["board_size"])
 neural_network = nn(game, config)
 
-neural_network.load_checkpoint("", os.path.join(os.path.dirname(sys.argv[0]), 'model.tar'), cpu_only=True)
+neural_network.load_checkpoint("", resource_path("model.tar"), cpu_only=True)
 
 coach = Coach(game, neural_network, config)
 
@@ -104,7 +114,7 @@ def generate_move(color):
     canonicalBoard = game.getCanonicalForm(board, curPlayer)
     player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
     canonicalHistory, x_boards, y_boards = game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces,
-                                                                 player_board)
+                                                                    player_board)
 
     x_boards, y_boards = y_boards, x_boards
 
@@ -144,7 +154,7 @@ def play(command):
     canonicalBoard = game.getCanonicalForm(board, curPlayer)
     player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
     canonicalHistory, x_boards, y_boards = game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces,
-                                                                 player_board)
+                                                                    player_board)
 
     # Player will switch, so switch x and y boards (current/opposing player histories)
     x_boards, y_boards = y_boards, x_boards
