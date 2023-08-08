@@ -3,7 +3,7 @@ import os
 import sys
 import time
 from collections import deque
-import dill 
+import dill
 from dill import Pickler, Unpickler
 from random import shuffle
 
@@ -46,7 +46,7 @@ class Coach:
         self.date_time = datetime.now().strftime("%d-%m-%Y %H")
         self.latest_checkpoint = 0
 
-        #Set recurse to true in order to fix segmentation fault error
+        # Set recurse to true in order to fix segmentation fault error
         dill.settings['recurse'] = True
         Pickler.settings['recurse'] = True
         Unpickler.settings['recurse'] = True
@@ -175,13 +175,12 @@ class Coach:
                         total_time += round(end_time - start_time, 2)
                         if eps == 0:
                             status_bar(eps + 1, first_iteration_num_games,
-                                   title="1st Iter Games", label="Games",
-                                   suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2)} | Total: {round(total_time, 2)}")
+                                       title="1st Iter Games", label="Games",
+                                       suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2)} | Total: {round(total_time, 2)}")
                         else:
                             status_bar(eps + 1, first_iteration_num_games,
-                                   title="1st Iter Games", label="Games",
-                                   suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time, 2) / eps + 1} | Total: {round(total_time, 2)}")
-
+                                       title="1st Iter Games", label="Games",
+                                       suffix=f"| Eps: {round(end_time - start_time, 2)} | Avg Eps: {round(total_time / (eps + 1), 2)} | Total: {round(total_time, 2)}")
 
                     games_played_during_iteration = first_iteration_num_games
 
@@ -225,8 +224,9 @@ class Coach:
                         num_downloads = self.scan_examples_folder_and_load(
                             game_limit=self.config["num_self_play_episodes"] - games_played_during_iteration)
                         if self.config["num_self_play_episodes"] - games_played_during_iteration != 0:
-                            status_bar(num_downloads, self.config["num_self_play_episodes"] - games_played_during_iteration,
-                                             title="Lambda Downloaded Games", label="Games")
+                            status_bar(num_downloads,
+                                       self.config["num_self_play_episodes"] - games_played_during_iteration,
+                                       title="Lambda Downloaded Games", label="Games")
 
                         print()
 
@@ -545,7 +545,8 @@ class Coach:
 
         for game_idx in range(len(games)):
             # file_name = f'logs/go/Game_History/Iteration {iteration}, Game {game_idx + 1} {self.date_time}.sgf'
-            file_name = self.config["game_history_directory"] + f"/Iteration {iteration}, Game {game_idx + 1} {self.date_time}.sgf"
+            file_name = self.config[
+                            "game_history_directory"] + f"/Iteration {iteration}, Game {game_idx + 1} {self.date_time}.sgf"
 
             sgf_file = open(file_name, 'w')
             sgf_file.close()
@@ -573,7 +574,8 @@ class Coach:
     # doesn't currently rename the file... which I think is fine
     def send_model_to_server(self):
         local_path = os.path.join(self.config["checkpoint_directory"], 'best.pth.tar')
-        ssh = self.createSSHClient(self.sensitive_config["worker_server_address"], 22, self.sensitive_config["worker_username"], self.sensitive_config["worker_password"])
+        ssh = self.createSSHClient(self.sensitive_config["worker_server_address"], 22,
+                                   self.sensitive_config["worker_username"], self.sensitive_config["worker_password"])
         scp = SCPClient(ssh.get_transport())
         scp.put(local_path, self.sensitive_config["distributed_models_directory"])
         print("New model uploaded.")

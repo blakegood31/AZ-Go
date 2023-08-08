@@ -52,7 +52,7 @@ for i in range(8):
     x_boards.append(np.zeros((config["board_size"], config["board_size"])))
     y_boards.append(np.zeros((config["board_size"], config["board_size"])))
 canonicalBoard = game.getCanonicalForm(board, curPlayer)
-player_board = c_boards[0]
+player_board = (c_boards[0], c_boards[1])
 canonicalHistory, x_boards, y_boards = game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces, player_board)
 
 
@@ -98,7 +98,7 @@ def generate_move(color):
 
     # make move on board
     # board, curPlayer = g.getNextState(board, curPlayer, action)
-    player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
+    player_board = (c_boards[0], c_boards[1]) if curPlayer == 1 else (c_boards[1], c_boards[0])
 
     # Generate a move based on most recent board state
     action = np.argmax(mcts.getActionProb(canonicalBoard, canonicalHistory, x_boards, y_boards, player_board, temp=0))
@@ -112,7 +112,7 @@ def generate_move(color):
 
     # Update histories to prepare for next move
     canonicalBoard = game.getCanonicalForm(board, curPlayer)
-    player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
+    player_board = (c_boards[0], c_boards[1]) if curPlayer == 1 else (c_boards[1], c_boards[0])
     canonicalHistory, x_boards, y_boards = game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces,
                                                                     player_board)
 
@@ -152,7 +152,7 @@ def play(command):
 
     # Update histories to prepare for next move
     canonicalBoard = game.getCanonicalForm(board, curPlayer)
-    player_board = c_boards[0] if curPlayer == 1 else c_boards[1]
+    player_board = (c_boards[0], c_boards[1]) if curPlayer == 1 else (c_boards[1], c_boards[0])
     canonicalHistory, x_boards, y_boards = game.getCanonicalHistory(x_boards, y_boards, canonicalBoard.pieces,
                                                                     player_board)
 
